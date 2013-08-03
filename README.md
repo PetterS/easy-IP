@@ -44,3 +44,10 @@ Requirements
  * Cbc, see https://projects.coin-or.org/Cbc
  * C++11
  
+Ubuntu
+------
+To install Cbc and its dependencies on Ubuntu, issue the following command:
+
+	sudo apt-get install coinor-libcbc-dev coinor-libclp-dev coinor-libosi-dev coinor-libcgl-dev
+
+CMake should then find and build everything.
