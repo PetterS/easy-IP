@@ -35,8 +35,8 @@ using std::size_t;
 #		define EASY_IP_API_EXTERN_TEMPLATE extern
 #	endif
 #else
-#	define SPII_API
-#	define SPII_API_EXTERN_TEMPLATE
+#	define EASY_IP_API
+#	define EASY_IP_API_EXTERN_TEMPLATE
 #endif // WIN32
 
 #ifdef _WIN32
@@ -176,6 +176,8 @@ friend class Constraint;
 friend class IP;
 public:
 	LogicalExpression();
+	LogicalExpression(const LogicalExpression& expr);
+	LogicalExpression& operator = (const LogicalExpression& expr);
 	LogicalExpression(LogicalExpression&& expr);
 	LogicalExpression& operator = (LogicalExpression&& expr);
 	LogicalExpression(const BooleanVariable& variable, bool is_negated = false);

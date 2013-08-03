@@ -299,6 +299,18 @@ LogicalExpression::LogicalExpression(const BooleanVariable& variable, bool is_ne
 LogicalExpression::LogicalExpression()
 { }
 
+LogicalExpression::LogicalExpression(const LogicalExpression& expr)
+{
+	*this = expr;
+}
+
+LogicalExpression& LogicalExpression::operator = (const LogicalExpression& expr)
+{
+	sum = expr.sum;
+	return *this;
+}
+
+
 LogicalExpression::LogicalExpression(LogicalExpression&& expr)
 {
 	*this = std::move(expr);
@@ -358,19 +370,19 @@ LogicalExpression implication(const BooleanVariable& antecedent, LogicalExpressi
 }
 
 Constraint::Constraint(const LogicalExpression& expression)
-	: lower_bound(1), sum(expression.sum), upper_bound(static_cast<double>(expression.sum.values.size()))
+	: lower_bound(1), upper_bound(static_cast<double>(expression.sum.values.size())), sum(expression.sum)
 { }
 
 Constraint::Constraint(LogicalExpression&& expression)
-	: lower_bound(1), sum(std::move(expression.sum)), upper_bound(static_cast<double>(expression.sum.values.size()))
+	: lower_bound(1), upper_bound(static_cast<double>(expression.sum.values.size())), sum(std::move(expression.sum))
 { }
 
 Constraint::Constraint(double lower_bound_, const Sum& sum_, double upper_bound_)
-		: lower_bound(lower_bound_), sum(sum_), upper_bound(upper_bound_)
+		: lower_bound(lower_bound_), upper_bound(upper_bound_), sum(sum_)
 { }
 
 Constraint::Constraint(double lower_bound_, Sum&& sum_, double upper_bound_)
-		: lower_bound(lower_bound_), sum(std::move(sum_)), upper_bound(upper_bound_)
+		: lower_bound(lower_bound_), upper_bound(upper_bound_), sum(std::move(sum_))
 { }
 
 Constraint operator <= (Sum lhs, const Sum& rhs)
@@ -703,16 +715,17 @@ public:
 	               const CbcModel* model_,
 	               CglPreProcess* process_)
 		: callback_function(callback_function_),
-	      solution(solution_),
-	      model(model_),
-	      process(process_)
+		  solution(solution_),
+		  model(model_),
+		  process(process_)
 	{ }
 
 	MyEventHandler(const MyEventHandler& rhs)
-		: callback_function(rhs.callback_function),
-	      solution(rhs.solution),
-	      model(rhs.model),
-	      process(rhs.process)
+		: CbcEventHandler(rhs),
+		  callback_function(rhs.callback_function),
+		  solution(rhs.solution),
+		  model(rhs.model),
+		  process(rhs.process)
 	{ }
 
 	virtual ~MyEventHandler()
@@ -845,6 +858,9 @@ bool IP::solve(const CallBack& callback_function)
 
 	// Pass the solver with the problem to be solved to CbcModel 
 	CbcModel model(*preprocessed_problem);
+
+	// Only the most important log messages.
+	model.setLogLevel(1);
 
 	if (callback_function) {
 		MyEventHandler my_event_handler(callback_function, &solution, &model, process.get());
