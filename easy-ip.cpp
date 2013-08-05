@@ -8,13 +8,20 @@
 //#include <typeid>
 #include <vector>
 
-#include <coin/CbcModel.hpp>
 // Using Clp as the solver
 #include <coin/OsiClpSolverInterface.hpp>
+
+#ifdef HAS_CPLEX
+	#include <coin/OsiCpxSolverInterface.hpp>
+#endif
+
+#ifdef HAS_MOSEK
+	#include <coin/OsiMskSolverInterface.hpp>
+#endif
+
+#include <coin/CbcModel.hpp>
 #include <coin/CbcEventHandler.hpp>
-#include <coin/CbcStrategy.hpp>
-#include <coin/ClpSimplex.hpp>
-#include <coin/ClpPresolve.hpp>
+
 #include <coin/CglPreProcess.hpp>
 
 #include <easy-ip.h>
@@ -123,12 +130,9 @@ void Sum::add_term(double coeff, const Variable& variable)
 	values.push_back(coeff);
 }
 
-void Sum::print(std::ostream& out) const
+double Sum::value() const
 {
-	out << constant;
-	for (int i = 0; i < values.size(); ++i) {
-		out << " + " << values[i] << "*x" << cols[i];
-	}
+	return creator->get_solution(*this);
 }
 
 Sum& Sum::operator += (const Sum& rhs)
@@ -457,26 +461,72 @@ ConstraintList operator && (ConstraintList&& lhs, Constraint&& rhs)
 	return list;
 }
 
+class IP::Implementation
+{
+public:
+	Implementation()
+		: external_solver(IP::Default)
+	{ }
+
+	vector<double> rhs_lower;
+	vector<double> rhs_upper;
+	vector<int> rows;
+	vector<int> cols;
+	vector<double> values;
+
+	vector<double> var_lb;
+	vector<double> var_ub;
+	vector<double> cost;
+
+	vector<double> solution;
+
+	vector<size_t> integer_variables;
+
+	Solver external_solver;
+
+	template<typename T>
+	void check_creator(const T& t) const;
+};
+
+IP::IP() 
+	: impl(new Implementation)
+{
+};
+
+IP::IP(IP&& lhs) 
+	: impl(lhs.impl)
+{
+	lhs.impl = nullptr;
+};
+
+IP::~IP()
+{
+	if (impl) {
+		delete impl;
+		impl = nullptr;
+	}
+}
+
 Variable IP::add_variable(VariableType type, double this_cost)
 {
 	if (type == Boolean) {
-		var_lb.push_back(0.0);
-		var_ub.push_back(1.0);
+		impl->var_lb.push_back(0.0);
+		impl->var_ub.push_back(1.0);
 	}
 	else {
-		var_lb.push_back(-1e100);
-		var_ub.push_back(1e100);
+		impl->var_lb.push_back(-1e100);
+		impl->var_ub.push_back(1e100);
 	}
 
-	cost.push_back(this_cost);
-	auto index = cost.size() - 1;
+	impl->cost.push_back(this_cost);
+	auto index = impl->cost.size() - 1;
 
 	if (type == Boolean || type == Integer) {
-		integer_variables.push_back(index);
+		impl->integer_variables.push_back(index);
 	}
 
-	attest(var_lb.size() == cost.size());
-	attest(var_ub.size() == cost.size());
+	attest(impl->var_lb.size() == impl->cost.size());
+	attest(impl->var_ub.size() == impl->cost.size());
 	return Variable(index, this);
 }
 
@@ -567,20 +617,20 @@ vector<vector<vector<BooleanVariable>>> IP::add_boolean_cube(int m, int n, int o
 //    L <= constraint <= U
 void IP::add_constraint(double L, const Sum& sum, double U)
 {
-	check_creator(sum);
+	impl->check_creator(sum);
 
-	rhs_lower.push_back(L - sum.constant);
-	rhs_upper.push_back(U - sum.constant);
-	auto row_index = rhs_upper.size() - 1;
+	impl->rhs_lower.push_back(L - sum.constant);
+	impl->rhs_upper.push_back(U - sum.constant);
+	auto row_index = impl->rhs_upper.size() - 1;
 	for (size_t i = 0; i < sum.cols.size(); ++i) {
-		rows.push_back(static_cast<int>(row_index));
-		cols.push_back(sum.cols[i]);
-		values.push_back(sum.values[i]);
+		impl->rows.push_back(static_cast<int>(row_index));
+		impl->cols.push_back(sum.cols[i]);
+		impl->values.push_back(sum.values[i]);
 	}
 
-	attest(rows.size() == values.size());
-	attest(cols.size() == values.size());
-	attest(rhs_lower.size() == rhs_upper.size());
+	attest(impl->rows.size() == impl->values.size());
+	attest(impl->cols.size() == impl->values.size());
+	attest(impl->rhs_lower.size() == impl->rhs_upper.size());
 }
 
 void IP::add_constraint(const Constraint& constraint)
@@ -604,50 +654,50 @@ void IP::add_constraint(const BooleanVariable& variable)
 //    L <= variable <= U
 void IP::set_bounds(double L, const Variable& variable, double U)
 {
-	check_creator(variable);
+	impl->check_creator(variable);
 
-	var_lb[variable.index] = L;
-	var_ub[variable.index] = U;
+	impl->var_lb[variable.index] = L;
+	impl->var_ub[variable.index] = U;
 }
 
 void IP::add_objective(const Sum& sum)
 {
-	check_creator(sum);
+	impl->check_creator(sum);
 
 	for (size_t i = 0; i < sum.cols.size(); ++i) {
-		cost.at(sum.cols[i]) += sum.values[i];
+		impl->cost.at(sum.cols[i]) += sum.values[i];
 	}
 	// TODO: handle constant.
 }
 
 template<typename T>
-void IP::check_creator(const T& t) const
+void IP::Implementation::check_creator(const T& t) const
 {
-	check(t.creator == nullptr || t.creator == this,
+	check(t.creator == nullptr || t.creator->impl == this,
 	      "Variable comes from a different solver.");
 }
 
 double IP::get_solution(const Variable& variable) const
 {
-	check_creator(variable);
+	impl->check_creator(variable);
 
-	return solution.at(variable.index);
+	return impl->solution.at(variable.index);
 }
 
 bool IP::get_solution(const BooleanVariable& variable) const
 {
-	check_creator(variable);
+	impl->check_creator(variable);
 
-	return solution.at(variable.index) > 0.5;
+	return impl->solution.at(variable.index) > 0.5;
 }
 
 double IP::get_solution(const Sum& sum) const
 {
-	check_creator(sum);
+	impl->check_creator(sum);
 
 	double value = sum.constant;
 	for (size_t i = 0; i < sum.cols.size(); ++i) {
-		value += sum.values[i] * solution.at(sum.cols[i]);
+		value += sum.values[i] * impl->solution.at(sum.cols[i]);
 	}
 	return value;
 }
@@ -755,62 +805,35 @@ protected:
 	CglPreProcess* process;
 };
 
+void IP::set_external_solver(Solver solver)
+{
+	impl->external_solver = solver;
+
+	if (solver == CPLEX) {
+		#ifndef HAS_CPLEX
+			throw std::runtime_error("IP::set_external_solver: CPLEX not installed.");
+		#endif
+	}
+	else if (solver == MOSEK) {
+		#ifndef HAS_MOSEK
+			throw std::runtime_error("IP::set_external_solver: MOSEK not installed.");
+		#endif
+	}
+}
 
 bool IP::solve(const CallBack& callback_function)
 {
-	attest(var_lb.size() == cost.size());
-	attest(var_ub.size() == cost.size());
+	attest(impl->var_lb.size() == impl->cost.size());
+	attest(impl->var_ub.size() == impl->cost.size());
 
-	attest(rows.size() == values.size());
-	attest(cols.size() == values.size());
-	attest(rhs_lower.size() == rhs_upper.size());
-
-	//using namespace std;
-	//cerr << "Rows: ";
-	//for (auto v : rows) {
-	//	cerr << v << " ";
-	//}
-	//cerr << endl;
-	//cerr << "Cols: ";
-	//for (auto v : cols) {
-	//	cerr << v << " ";
-	//}
-	//cerr << endl;
-	//cerr << "Vals: ";
-	//for (auto v : values) {
-	//	cerr << v << " ";
-	//}
-	//cerr << endl;
-	//cerr << "Rhsl: ";
-	//for (auto v : rhs_lower) {
-	//	cerr << v << " ";
-	//}
-	//cerr << endl;
-	//cerr << "Rhsu: ";
-	//for (auto v : rhs_upper) {
-	//	cerr << v << " ";
-	//}
-	//cerr << endl;
-	//cerr << "Varl: ";
-	//for (auto v : var_lb) {
-	//	cerr << v << " ";
-	//}
-	//cerr << endl;
-	//cerr << "Varu: ";
-	//for (auto v : var_ub) {
-	//	cerr << v << " ";
-	//}
-	//cerr << endl;
-	//cerr << "Cost: ";
-	//for (auto v : cost) {
-	//	cerr << v << " ";
-	//}
-	//cerr << endl;
+	attest(impl->rows.size() == impl->values.size());
+	attest(impl->cols.size() == impl->values.size());
+	attest(impl->rhs_lower.size() == impl->rhs_upper.size());
 
 	// Check if last_index is present.
-	auto last_index = cost.size() - 1;
+	auto last_index = impl->cost.size() - 1;
 	bool last_index_present = false;
-	for (auto var : cols) {
+	for (auto var : impl->cols) {
 		if (var == last_index) {
 			last_index_present = true;
 			break;
@@ -821,79 +844,146 @@ bool IP::solve(const CallBack& callback_function)
 		add_constraint(-1e100, 100*Variable(last_index, this), 1e100);
 	}
 
-	CoinPackedMatrix coinMatrix(false, &rows[0], &cols[0], &values[0], CoinBigIndex(values.size()) );
-	OsiClpSolverInterface problem;
-	problem.loadProblem (coinMatrix, &var_lb[0], &var_ub[0], &cost[0], &rhs_lower[0], &rhs_upper[0]);
+	CoinPackedMatrix coinMatrix(false,
+	                            &impl->rows[0],
+	                            &impl->cols[0],
+	                            &impl->values[0],
+	                            CoinBigIndex(impl->values.size()) );
 
-	for (auto index: integer_variables) {
-		problem.setInteger(static_cast<int>(index));
+	std::unique_ptr<OsiSolverInterface> problem;
+	if(impl->external_solver == IP::CPLEX) {
+		#ifdef HAS_CPLEX
+			problem.reset(new OsiCpxSolverInterface);
+		#endif
+	}
+	else if(impl->external_solver == IP::MOSEK) {
+		#ifdef HAS_MOSEK
+			problem.reset(new OsiMskSolverInterface);
+		#endif
+	}
+	else {
+		auto clp_problem = new OsiClpSolverInterface;
+		problem.reset(clp_problem);
+		// Turn off information from the LP solver.
+		clp_problem->setLogLevel(0);
 	}
 
-	// Turn off information from the LP solver.
-	problem.setLogLevel(0);
+	problem->loadProblem(coinMatrix,
+	                     &impl->var_lb[0],
+	                     &impl->var_ub[0],
+	                     &impl->cost[0],
+	                     &impl->rhs_lower[0],
+	                     &impl->rhs_upper[0]);
+
+	for (auto index: impl->integer_variables) {
+		problem->setInteger(static_cast<int>(index));
+	}
 
 	std::unique_ptr<CglPreProcess> process(nullptr);
 	OsiSolverInterface* preprocessed_problem;
+	OsiSolverInterface* solved_problem;
 
-	bool preprocess = true;
-	if (callback_function) {
-		// Intermediate solutions are not correct
-		// when using preprocessing.
-		preprocess = false;
+	if (impl->external_solver != IP::Default) {
+		problem->branchAndBound();
+		solved_problem = problem.get();
+
+		if (solved_problem->isAbandoned()) {
+			std::cerr << "-- Abandoned." << std::endl;
+			return false;
+		}
+		else if (solved_problem->isProvenPrimalInfeasible()) {
+			std::cerr << "-- Infeasible." << std::endl;
+			return false;
+		}
+		else if (solved_problem->isProvenDualInfeasible()) {
+			std::cerr << "-- Unbounded." << std::endl;
+			return false;
+		}
+		else if (solved_problem->isPrimalObjectiveLimitReached()) {
+			std::cerr << "-- Primal objective limit." << std::endl;
+			return false;
+		}
+		else if (solved_problem->isDualObjectiveLimitReached()) {
+			std::cerr << "-- Dual objective limit." << std::endl;
+			return false;
+		}
+		else if (solved_problem->isIterationLimitReached()) {
+			std::cerr << "-- Iteration limit." << std::endl;
+			return false;
+		}
+		else if (!impl->integer_variables.empty() && !solved_problem->isProvenOptimal()) {
+			std::cerr << "-- Not optimal." << std::endl;
+			return false;
+		}
 	}
+	else {
+		bool preprocess = true;
+		if (callback_function) {
+			// Intermediate solutions are not correct
+			// when using preprocessing.
+			preprocess = false;
+		}
 
-	if (preprocess) {
-		process.reset(new CglPreProcess);
-		problem.initialSolve();
-		preprocessed_problem = process->preProcess(problem, false, 20);
-		if (!preprocessed_problem) {
+		if (preprocess) {
+			process.reset(new CglPreProcess);
+			problem->initialSolve();
+			preprocessed_problem = process->preProcess(*problem, false, 20);
+			if (!preprocessed_problem) {
+				//throw std::runtime_error("Problem infeasible.");
+				return false;
+			}
+			preprocessed_problem->resolve();
+		}
+		else {
+			preprocessed_problem = problem.get();
+		}
+
+		// Pass the solver with the problem to be solved to CbcModel 
+		CbcModel model(*preprocessed_problem);
+
+		// Only the most important log messages.
+		model.setLogLevel(1);
+
+		if (callback_function) {
+			MyEventHandler my_event_handler(callback_function,
+			                                &impl->solution,
+			                                &model,
+			                                process.get());
+			model.passInEventHandler(&my_event_handler);
+		}
+
+		// Do complete search
+		model.branchAndBound();
+
+		if (model.isProvenInfeasible()) {
 			//throw std::runtime_error("Problem infeasible.");
 			return false;
 		}
-		preprocessed_problem->resolve();
-	}
-	else {
-		preprocessed_problem = &problem;
-	}
+	
+		if (model.isProvenDualInfeasible()) {
+			//throw std::runtime_error("Problem unbounded.");
+			return false;
+		}
 
-	// Pass the solver with the problem to be solved to CbcModel 
-	CbcModel model(*preprocessed_problem);
+		if (!model.isProvenOptimal()) {
+			throw std::runtime_error("Could not solve IP.");
+		}
 
-	// Only the most important log messages.
-	model.setLogLevel(1);
-
-	if (callback_function) {
-		MyEventHandler my_event_handler(callback_function, &solution, &model, process.get());
-		model.passInEventHandler(&my_event_handler);
-	}
-
-	// Do complete search
-	model.branchAndBound();
-
-	if (model.isProvenInfeasible()) {
-		//throw std::runtime_error("Problem infeasible.");
-		return false;
-	}
-
-	if (!model.isProvenOptimal()) {
-		throw std::runtime_error("Could not solve IP.");
-	}
-
-	OsiSolverInterface* solved_problem;
-	if (preprocess) {
-		process->postProcess(*model.solver());
-		solved_problem = &problem;
-	}
-	else {
-		solved_problem = model.solver();
+		if (preprocess) {
+			process->postProcess(*model.solver());
+			solved_problem = problem.get();
+		}
+		else {
+			solved_problem = model.solver();
+		}
 	}
 
 	int numberColumns = solved_problem->getNumCols();
 	const double* raw_solution = solved_problem->getColSolution();
 
-	solution.clear();
+	impl->solution.clear();
 	for (size_t i = 0; i < numberColumns; ++i) {
-		solution.push_back(raw_solution[i]);
+		impl->solution.push_back(raw_solution[i]);
 	}
 
 	return true;
@@ -901,22 +991,22 @@ bool IP::solve(const CallBack& callback_function)
 
 size_t IP::get_number_of_variables() const
 {
-	return cost.size();
+	return impl->cost.size();
 }
 
 void IP::clear()
 {
-	rhs_lower.clear();
-	rhs_upper.clear();
-	rows.clear();
-	cols.clear();
-	values.clear();
+	impl->rhs_lower.clear();
+	impl->rhs_upper.clear();
+	impl->rows.clear();
+	impl->cols.clear();
+	impl->values.clear();
 
-	var_lb.clear();
-	var_ub.clear();
-	cost.clear();
+	impl->var_lb.clear();
+	impl->var_ub.clear();
+	impl->cost.clear();
 
-	solution.clear();
+	impl->solution.clear();
 
-	integer_variables.clear();
+	impl->integer_variables.clear();
 }

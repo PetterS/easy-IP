@@ -42,7 +42,6 @@ using std::size_t;
 #ifdef _WIN32
 	EASY_IP_API_EXTERN_TEMPLATE template class EASY_IP_API std::vector<int>;
 	EASY_IP_API_EXTERN_TEMPLATE template class EASY_IP_API std::vector<double>;
-	EASY_IP_API_EXTERN_TEMPLATE template class EASY_IP_API std::vector<size_t>;
 #endif
 
 void EASY_IP_API check(bool expr, const char* message);
@@ -128,7 +127,7 @@ public:
 	Sum& operator *= (double coeff);
 	void negate();
 
-	void print(std::ostream&) const;
+	double value() const;
 
 protected:
 	double constant;
@@ -158,7 +157,7 @@ EASY_IP_API Sum operator - (Sum&& lhs, Sum&& rhs);
 
 std::ostream& operator << (std::ostream& out, const Sum& sum)
 {
-	sum.print(out);
+	out << sum.value();
 	return out;
 }
 
@@ -257,6 +256,10 @@ class EASY_IP_API IP
 public:
 	enum VariableType {Boolean, Binary = Boolean, Integer, Real};
 
+	IP();
+	IP(IP&&);
+	~IP();
+
 	/// Adds a variable to the optimization problems. Variables must not
 	/// have their values queried after the creating IP class has been
 	/// destroyed.
@@ -298,6 +301,10 @@ public:
 	/// objective function.
 	void add_objective(const Sum& sum);
 
+	enum Solver {Default, CPLEX, MOSEK};
+	/// Switches to an external solver (if available).
+	void set_external_solver(Solver solver);
+
 	typedef std::function<void()> CallBack;
 	/// Solves the integer program. Returns false if the program
 	/// is infeasible or unbounded.
@@ -320,24 +327,11 @@ public:
 	// Resets the optimization problem and starts over.
 	void clear();
 
-protected:
-	vector<double> rhs_lower;
-	vector<double> rhs_upper;
-	vector<int> rows;
-	vector<int> cols;
-	vector<double> values;
-
-	vector<double> var_lb;
-	vector<double> var_ub;
-	vector<double> cost;
-
-	vector<double> solution;
-
-	vector<size_t> integer_variables;
-
 private:
-	template<typename T>
-	void check_creator(const T& t) const;
+	class Implementation;
+	Implementation* impl;
+
+	IP(const IP&);
 };
 
 #endif

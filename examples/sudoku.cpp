@@ -10,7 +10,7 @@ int main()
 	using namespace std;
 
 	IP ip;
-	int n = 3;
+	int n = 2;
 	auto P = ip.add_boolean_cube(n*n, n*n, n*n);
 
 	// Exactly one indicator equal to 1.
@@ -81,6 +81,12 @@ int main()
 	                       "***" "***" "***",
 	                       "***" "***" "***"};
 
+	//const char* given[] = {"**" "**",
+	//                       "**" "**",
+
+	//                       "**" "12",
+	//                       "**" "34"};
+
 	cerr << "Preassignments\n";
 	for (int i = 0; i < n*n; ++i) {
 		for (int j = 0; j < n*n; ++j) {
@@ -92,6 +98,7 @@ int main()
 		}
 	}
 
+	//ip.set_external_solver(IP::CPLEX);
 	ip.solve();
 
 	cout << endl;

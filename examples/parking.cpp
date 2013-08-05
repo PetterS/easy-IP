@@ -111,7 +111,7 @@ int main_program()
 {
 	using namespace std;
 
-	int n = 6;
+	int n = 4;
 
 	MyIP ip;
 
