@@ -21,10 +21,13 @@
 
 #include <functional>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <vector>
 using std::vector;
 using std::size_t;
+
+class OsiSolverInterface;
 
 #ifdef _WIN32
 #	ifdef easyip_EXPORTS
@@ -326,6 +329,19 @@ public:
 
 	// Resets the optimization problem and starts over.
 	void clear();
+
+
+	//
+	// More advanced functionality
+	//
+
+	/// Creates and returns a pointer to a solver. 
+	///
+	/// If existing_solver is not null, it takes ownership and returns it in
+	/// the unique_ptr after loading the problem. This allows any interface to
+	/// be created, e.g. OsiGrbSolverInterface, which this library might not
+	/// know about.
+	std::unique_ptr<OsiSolverInterface> get_problem(OsiSolverInterface* existing_solver = nullptr);
 
 private:
 	class Implementation;

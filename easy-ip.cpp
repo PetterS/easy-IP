@@ -821,8 +821,21 @@ void IP::set_external_solver(Solver solver)
 	}
 }
 
-bool IP::solve(const CallBack& callback_function)
+std::unique_ptr<OsiSolverInterface> IP::get_problem(OsiSolverInterface* existing_solver)
 {
+	std::unique_ptr<OsiSolverInterface> problem;
+
+	if (existing_solver) {
+		// Take ownership.
+		problem.reset(existing_solver);
+	}
+	else {
+		auto clp_problem = new OsiClpSolverInterface;
+		problem.reset(clp_problem);
+		// Turn off information from the LP solver.
+		clp_problem->setLogLevel(0);
+	}
+
 	attest(impl->var_lb.size() == impl->cost.size());
 	attest(impl->var_ub.size() == impl->cost.size());
 
@@ -850,24 +863,6 @@ bool IP::solve(const CallBack& callback_function)
 	                            &impl->values[0],
 	                            CoinBigIndex(impl->values.size()) );
 
-	std::unique_ptr<OsiSolverInterface> problem;
-	if(impl->external_solver == IP::CPLEX) {
-		#ifdef HAS_CPLEX
-			problem.reset(new OsiCpxSolverInterface);
-		#endif
-	}
-	else if(impl->external_solver == IP::MOSEK) {
-		#ifdef HAS_MOSEK
-			problem.reset(new OsiMskSolverInterface);
-		#endif
-	}
-	else {
-		auto clp_problem = new OsiClpSolverInterface;
-		problem.reset(clp_problem);
-		// Turn off information from the LP solver.
-		clp_problem->setLogLevel(0);
-	}
-
 	problem->loadProblem(coinMatrix,
 	                     &impl->var_lb[0],
 	                     &impl->var_ub[0],
@@ -879,7 +874,31 @@ bool IP::solve(const CallBack& callback_function)
 		problem->setInteger(static_cast<int>(index));
 	}
 
+	//problem->writeMps("problem");
+
+	return std::move(problem);
+}
+
+bool IP::solve(const CallBack& callback_function)
+{
+	std::unique_ptr<OsiSolverInterface> problem;
+
+	if(impl->external_solver == IP::CPLEX) {
+		#ifdef HAS_CPLEX
+			problem = get_problem(new OsiCpxSolverInterface);
+		#endif
+	}
+	else if(impl->external_solver == IP::MOSEK) {
+		#ifdef HAS_MOSEK
+			problem = get_problem(new OsiMskSolverInterface);
+		#endif
+	}
+	else {
+		problem = get_problem();
+	}
+
 	std::unique_ptr<CglPreProcess> process(nullptr);
+	std::unique_ptr<CbcModel> model;
 	OsiSolverInterface* preprocessed_problem;
 	OsiSolverInterface* solved_problem;
 
@@ -939,42 +958,42 @@ bool IP::solve(const CallBack& callback_function)
 		}
 
 		// Pass the solver with the problem to be solved to CbcModel 
-		CbcModel model(*preprocessed_problem);
+		model.reset(new CbcModel(*preprocessed_problem));
 
 		// Only the most important log messages.
-		model.setLogLevel(1);
+		model->setLogLevel(1);
 
 		if (callback_function) {
 			MyEventHandler my_event_handler(callback_function,
 			                                &impl->solution,
-			                                &model,
+			                                model.get(),
 			                                process.get());
-			model.passInEventHandler(&my_event_handler);
+			model->passInEventHandler(&my_event_handler);
 		}
 
 		// Do complete search
-		model.branchAndBound();
+		model->branchAndBound();
 
-		if (model.isProvenInfeasible()) {
+		if (model->isProvenInfeasible()) {
 			//throw std::runtime_error("Problem infeasible.");
 			return false;
 		}
 	
-		if (model.isProvenDualInfeasible()) {
+		if (model->isProvenDualInfeasible()) {
 			//throw std::runtime_error("Problem unbounded.");
 			return false;
 		}
 
-		if (!model.isProvenOptimal()) {
+		if (!model->isProvenOptimal()) {
 			throw std::runtime_error("Could not solve IP.");
 		}
 
 		if (preprocess) {
-			process->postProcess(*model.solver());
+			process->postProcess(*model->solver());
 			solved_problem = problem.get();
 		}
 		else {
-			solved_problem = model.solver();
+			solved_problem = model->solver();
 		}
 	}
 
