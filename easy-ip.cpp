@@ -175,6 +175,16 @@ Sum& Sum::operator *= (double coeff)
 	return *this;
 }
 
+Sum& Sum::operator /= (double coeff)
+{
+	if (coeff == 0.0) {
+		throw std::runtime_error("Sum: Division by zero.");
+	}
+
+	*this *= (1.0 / coeff);
+	return *this;
+}
+
 Sum operator * (double coeff, const Variable& variable)
 {
 	Sum sum(variable);
@@ -191,6 +201,12 @@ Sum operator *  (double coeff, Sum sum)
 Sum operator *  (Sum sum, double coeff)
 {
 	sum *= coeff;
+	return sum;
+}
+
+Sum operator /  (Sum sum, double coeff)
+{
+	sum /= coeff;
 	return sum;
 }
 
@@ -832,8 +848,12 @@ std::unique_ptr<OsiSolverInterface> IP::get_problem(std::unique_ptr<OsiSolverInt
 	else {
 		auto clp_problem = new OsiClpSolverInterface;
 		problem.reset(clp_problem);
-		// Turn off information from the LP solver.
-		clp_problem->setLogLevel(0);
+		// Turn off information from the LP solver if we are
+		// using branch and cut/bound since this means a lot
+		// of LPs.
+		if ( ! impl->integer_variables.empty()) {
+			clp_problem->setLogLevel(0);
+		}
 	}
 
 	attest(impl->var_lb.size() == impl->cost.size());
@@ -904,8 +924,14 @@ bool IP::solve(const CallBack& callback_function)
 	OsiSolverInterface* preprocessed_problem;
 	OsiSolverInterface* solved_problem;
 
-	if (impl->external_solver != IP::Default) {
-		problem->branchAndBound();
+	if (impl->external_solver != IP::Default || impl->integer_variables.empty()) {
+		
+		if (impl->integer_variables.empty()) {
+			problem->initialSolve();
+		}
+		else {
+			problem->branchAndBound();
+		}
 		solved_problem = problem.get();
 
 		if (solved_problem->isAbandoned()) {

@@ -21,6 +21,7 @@
 
 #include <functional>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -77,6 +78,14 @@ private:
 
 	size_t index;
 	const IP* creator;
+
+	// Everything below ONLY exists so that the variable
+	// may be stored in an std::map.
+	Variable() 
+		: index(-1), creator(nullptr)
+	{ }
+	template <typename A, typename B, typename C, typename D>
+	friend class std::map;
 };
 
 /// Represents a boolean variable in order to enforce
@@ -128,6 +137,7 @@ public:
 	Sum& operator += (const Sum& rhs);
 	Sum& operator -= (const Sum& rhs);
 	Sum& operator *= (double coeff);
+	Sum& operator /= (double coeff);
 	void negate();
 
 	double value() const;
@@ -144,6 +154,8 @@ protected:
 EASY_IP_API Sum operator * (double coeff, const Variable& variable);
 EASY_IP_API Sum operator * (double coeff, Sum sum);
 EASY_IP_API Sum operator * (Sum sum, double coeff);
+
+EASY_IP_API Sum operator / (Sum sum, double coeff);
 
 EASY_IP_API Sum operator + (const Sum& lhs, const Sum& rhs);
 EASY_IP_API Sum operator + (const Sum& lhs, Sum&& rhs);
