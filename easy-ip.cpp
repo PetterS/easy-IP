@@ -918,13 +918,6 @@ bool IP::Implementation::parse_solution()
 	OsiSolverInterface* solved_problem = nullptr;
 
 	if (use_osi()) {
-		
-		if (integer_variables.empty()) {
-			problem->initialSolve();
-		}
-		else {
-			problem->branchAndBound();
-		}
 		solved_problem = problem.get();
 
 		if (solved_problem->isAbandoned()) {
@@ -987,7 +980,7 @@ bool IP::solve(const CallBack& callback_function)
 	if(impl->external_solver == IP::CPLEX) {
 		#ifdef HAS_CPLEX
 			auto cplex_solver = std::unique_ptr<OsiSolverInterface>(new OsiCpxSolverInterface);
-			problem = get_problem(std::move(cplex_solver);
+			impl->problem = get_problem(std::move(cplex_solver));
 		#endif
 	}
 	else if(impl->external_solver == IP::MOSEK) {
@@ -1129,6 +1122,8 @@ bool IP::solve(const CallBack& callback_function)
 
 bool IP::next_solution()
 {
+	check( ! impl->integer_variables.empty(), "next_solution(): Need integer variables.");
+
 	OsiSolverInterface * refSolver = nullptr;
 	OsiSolverInterface* solver = nullptr;
 	const double * objective = nullptr;
@@ -1160,6 +1155,8 @@ bool IP::next_solution()
 		double value = impl->solution[iColumn];
 		if (solver->isInteger(iColumn)) {
 			// only works for 0-1 variables
+			attest(impl->var_lb[iColumn] == 0.0 || impl->var_lb[iColumn] == 1.0);
+			attest(impl->var_ub[iColumn] == 0.0 || impl->var_ub[iColumn] == 1.0);
 			// double check integer
 			attest (fabs(floor(value+0.5)-value)<1.0e-5);
 			if (value>0.5) {
@@ -1182,6 +1179,7 @@ bool IP::next_solution()
 	refSolver->addRow(objective_cut, best_objective, best_objective);
 
 	if (impl->use_osi()) {
+		refSolver->branchAndBound();
 	}
 	else {
 		impl->model->resetToReferenceSolver();
