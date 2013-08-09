@@ -1093,12 +1093,10 @@ bool IP::solve(const CallBack& callback_function)
 		/*
 		CbcRounding heuristic1(*impl->model);
 		impl->model->addHeuristic(&heuristic1);
-
 		// And local search when new solution found
-
 		CbcHeuristicLocal heuristic2(*impl->model);
 		impl->model->addHeuristic(&heuristic2);
-
+		
 		// Do initial solve to continuous
 		impl->model->initialSolve();
 
@@ -1108,6 +1106,18 @@ bool IP::solve(const CallBack& callback_function)
 		double minimumDrop= fabs(objValue)*1.0e-4+1.0e-4;
 		printf("min drop %g (A %g)\n",minimumDrop,minimumDropA);
 		impl->model->setMinimumDrop(minimumDrop);
+		*/
+
+		/*
+		// Default strategy will leave cut generators as they exist already
+		// so cutsOnlyAtRoot (1) ignored
+		// numberStrong (2) is 5 (default)
+		// numberBeforeTrust (3) is 5 (default is 0)
+		// printLevel (4) defaults (0)
+		CbcStrategyDefault strategy(true,5,5);
+		// Set up pre-processing to find sos if wanted
+		strategy.setupPreProcessing(2);
+		impl->model->setStrategy(strategy);
 		*/
 
 		// Do complete search
@@ -1121,21 +1131,18 @@ bool IP::next_solution()
 {
 	OsiSolverInterface * refSolver = nullptr;
 	OsiSolverInterface* solver = nullptr;
-	const double * bestSolution = nullptr;
 	const double * objective = nullptr;
 
 	if (impl->use_osi()) {
 		refSolver = impl->problem.get();
 		solver = impl->problem.get();
 
-		bestSolution = solver->getColSolution();
 		objective = solver->getObjCoefficients();
 	}
 	else {
 		refSolver = impl->model->referenceSolver();
 		solver = impl->model->solver();
 
-		bestSolution = impl->model->bestSolution();
 		objective = refSolver->getObjCoefficients();	
 	}
 
