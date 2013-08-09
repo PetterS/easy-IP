@@ -215,7 +215,7 @@ int main_program()
 
 	do {
 		print_solution();
-	} while (ip.next_solution());
+	} while (false /*ip.next_solution()*/);
 
 
 	return 0;

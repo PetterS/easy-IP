@@ -119,5 +119,5 @@ int main()
 				cout << endl;
 			}
 		}
-	} while (ip.next_solution());
+	} while (false /*ip.next_solution()*/);
 }
