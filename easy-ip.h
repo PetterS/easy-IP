@@ -327,6 +327,8 @@ public:
 	/// If a callback is used, preprocessing will be turned off.
 	bool solve(const CallBack& callback_function = nullptr);
 
+	bool next_solution();
+
 	/// Retrieves the value of a variable in the solution.
 	double get_solution(const Variable& variable) const;
 	/// Retrieves the value of a variable in the solution.

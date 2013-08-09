@@ -21,7 +21,18 @@
 
 #include <coin/CbcModel.hpp>
 #include <coin/CbcEventHandler.hpp>
+#include <coin/CbcCutGenerator.hpp>
+#include <coin/CbcStrategy.hpp>
+#include <coin/CbcHeuristicLocal.hpp>
 
+#include <coin/CglGomory.hpp>
+#include <coin/CglProbing.hpp>
+#include <coin/CglKnapsackCover.hpp>
+#include <coin/CglRedSplit.hpp>
+#include <coin/CglClique.hpp>
+#include <coin/CglOddHole.hpp>
+#include <coin/CglFlowCover.hpp>
+#include <coin/CglMixedIntegerRounding2.hpp>
 #include <coin/CglPreProcess.hpp>
 
 #include <easy-ip.h>
@@ -484,6 +495,10 @@ public:
 		: external_solver(IP::Default)
 	{ }
 
+	bool parse_solution();
+	
+	bool use_osi() const;
+
 	vector<double> rhs_lower;
 	vector<double> rhs_upper;
 	vector<int> rows;
@@ -499,6 +514,11 @@ public:
 	vector<size_t> integer_variables;
 
 	Solver external_solver;
+
+	bool preprocess;
+	std::unique_ptr<OsiSolverInterface> problem;
+	std::unique_ptr<CbcModel> model;
+	std::vector<std::unique_ptr<CglCutGenerator>> generators;
 
 	template<typename T>
 	void check_creator(const T& t) const;
@@ -744,14 +764,8 @@ public:
 					auto best_solution = model->bestSolution();
 					const int* org_columns;
 
-					if (process) {
-						org_n = process->originalModel()->getNumCols();
-						org_columns = process->originalColumns();
-					}
-					else {
-						org_n = n;
-						org_columns = model->originalColumns();
-					}
+					org_n = n;
+					org_columns = model->originalColumns();
 
 					solution->clear();
 					solution->resize(org_n, 0.0);
@@ -778,20 +792,17 @@ public:
 
 	MyEventHandler(const IP::CallBack& callback_function_,
 	               std::vector<double>* solution_,
-	               const CbcModel* model_,
-	               CglPreProcess* process_)
+	               const CbcModel* model_)
 		: callback_function(callback_function_),
 		  solution(solution_),
-		  model(model_),
-		  process(process_)
+		  model(model_)
 	{ }
 
 	MyEventHandler(const MyEventHandler& rhs)
 		: CbcEventHandler(rhs),
 		  callback_function(rhs.callback_function),
 		  solution(rhs.solution),
-		  model(rhs.model),
-		  process(rhs.process)
+		  model(rhs.model)
 	{ }
 
 	virtual ~MyEventHandler()
@@ -803,7 +814,6 @@ public:
 			callback_function = rhs.callback_function;
 			solution = rhs.solution;
 			model = rhs.model;
-			process = rhs.process;
 		}
 		return *this;
 	}
@@ -818,7 +828,6 @@ protected:
 	IP::CallBack callback_function;
 	std::vector<double>* solution;
 	const CbcModel* model;
-	CglPreProcess* process;
 };
 
 void IP::set_external_solver(Solver solver)
@@ -899,34 +908,18 @@ std::unique_ptr<OsiSolverInterface> IP::get_problem(std::unique_ptr<OsiSolverInt
 	return std::move(problem);
 }
 
-bool IP::solve(const CallBack& callback_function)
+bool IP::Implementation::use_osi() const
 {
-	std::unique_ptr<OsiSolverInterface> problem;
+	return external_solver != IP::Default || integer_variables.empty();
+}
 
-	if(impl->external_solver == IP::CPLEX) {
-		#ifdef HAS_CPLEX
-			auto cplex_solver = std::unique_ptr<OsiSolverInterface>(new OsiCpxSolverInterface);
-			problem = get_problem(std::move(cplex_solver);
-		#endif
-	}
-	else if(impl->external_solver == IP::MOSEK) {
-		#ifdef HAS_MOSEK
-			auto mosek_solver = std::unique_ptr<OsiSolverInterface>(new OsiMskSolverInterface);
-			problem = get_problem(std::move(mosek_solver));
-		#endif
-	}
-	else {
-		problem = get_problem();
-	}
+bool IP::Implementation::parse_solution()
+{
+	OsiSolverInterface* solved_problem = nullptr;
 
-	std::unique_ptr<CglPreProcess> process(nullptr);
-	std::unique_ptr<CbcModel> model;
-	OsiSolverInterface* preprocessed_problem;
-	OsiSolverInterface* solved_problem;
-
-	if (impl->external_solver != IP::Default || impl->integer_variables.empty()) {
+	if (use_osi()) {
 		
-		if (impl->integer_variables.empty()) {
+		if (integer_variables.empty()) {
 			problem->initialSolve();
 		}
 		else {
@@ -958,50 +951,12 @@ bool IP::solve(const CallBack& callback_function)
 			std::cerr << "-- Iteration limit." << std::endl;
 			return false;
 		}
-		else if (!impl->integer_variables.empty() && !solved_problem->isProvenOptimal()) {
+		else if (!integer_variables.empty() && !solved_problem->isProvenOptimal()) {
 			std::cerr << "-- Not optimal." << std::endl;
 			return false;
 		}
 	}
 	else {
-		bool preprocess = true;
-		if (callback_function) {
-			// Intermediate solutions are not correct
-			// when using preprocessing.
-			preprocess = false;
-		}
-
-		if (preprocess) {
-			process.reset(new CglPreProcess);
-			problem->initialSolve();
-			preprocessed_problem = process->preProcess(*problem, false, 20);
-			if (!preprocessed_problem) {
-				//throw std::runtime_error("Problem infeasible.");
-				return false;
-			}
-			preprocessed_problem->resolve();
-		}
-		else {
-			preprocessed_problem = problem.get();
-		}
-
-		// Pass the solver with the problem to be solved to CbcModel 
-		model.reset(new CbcModel(*preprocessed_problem));
-
-		// Only the most important log messages.
-		model->setLogLevel(1);
-
-		if (callback_function) {
-			MyEventHandler my_event_handler(callback_function,
-			                                &impl->solution,
-			                                model.get(),
-			                                process.get());
-			model->passInEventHandler(&my_event_handler);
-		}
-
-		// Do complete search
-		model->branchAndBound();
-
 		if (model->isProvenInfeasible()) {
 			//throw std::runtime_error("Problem infeasible.");
 			return false;
@@ -1012,28 +967,224 @@ bool IP::solve(const CallBack& callback_function)
 			return false;
 		}
 
-		if (!model->isProvenOptimal()) {
-			throw std::runtime_error("Could not solve IP.");
-		}
-
-		if (preprocess) {
-			process->postProcess(*model->solver());
-			solved_problem = problem.get();
-		}
-		else {
-			solved_problem = model->solver();
-		}
+		solved_problem = model->solver();
 	}
 
 	int numberColumns = solved_problem->getNumCols();
 	const double* raw_solution = solved_problem->getColSolution();
 
-	impl->solution.clear();
+	solution.clear();
 	for (size_t i = 0; i < numberColumns; ++i) {
-		impl->solution.push_back(raw_solution[i]);
+		solution.push_back(raw_solution[i]);
 	}
 
 	return true;
+}
+
+
+bool IP::solve(const CallBack& callback_function)
+{
+	if(impl->external_solver == IP::CPLEX) {
+		#ifdef HAS_CPLEX
+			auto cplex_solver = std::unique_ptr<OsiSolverInterface>(new OsiCpxSolverInterface);
+			problem = get_problem(std::move(cplex_solver);
+		#endif
+	}
+	else if(impl->external_solver == IP::MOSEK) {
+		#ifdef HAS_MOSEK
+			auto mosek_solver = std::unique_ptr<OsiSolverInterface>(new OsiMskSolverInterface);
+			impl->problem = get_problem(std::move(mosek_solver));
+		#endif
+	}
+	else {
+		impl->problem = get_problem();
+	}
+
+	if (impl->external_solver != IP::Default || impl->integer_variables.empty()) {
+		
+		if (impl->integer_variables.empty()) {
+			impl->problem->initialSolve();
+		}
+		else {
+			impl->problem->branchAndBound();
+		}
+	}
+	else {
+		// Pass the solver with the problem to be solved to CbcModel 
+		impl->model.reset(new CbcModel(*impl->problem.get()));
+
+		// Only the most important log messages.
+		impl->model->setLogLevel(1);
+
+		if (callback_function) {
+			MyEventHandler my_event_handler(callback_function,
+			                                &impl->solution,
+			                                impl->model.get());
+			impl->model->passInEventHandler(&my_event_handler);
+		}
+
+		impl->generators.clear();
+
+		// Add in generators
+		// Experiment with -1 and -99 etc
+		int how_often = -1;
+
+		auto generator1 = new CglProbing;
+		impl->generators.emplace_back(generator1);
+		generator1->setUsingObjective(true);
+		generator1->setMaxPass(1);
+		generator1->setMaxPassRoot(5);
+		// Number of unsatisfied variables to look at
+		generator1->setMaxProbe(10);
+		generator1->setMaxProbeRoot(1000);
+		// How far to follow the consequences
+		generator1->setMaxLook(50);
+		generator1->setMaxLookRoot(500);
+		// Only look at rows with fewer than this number of elements
+		generator1->setMaxElements(200);
+		generator1->setRowCuts(3);
+		
+		impl->model->addCutGenerator(generator1, how_often, "Probing");
+
+		auto generator2 = new CglGomory;
+		impl->generators.emplace_back(generator2);
+		// try larger limit
+		generator2->setLimit(300);
+		impl->model->addCutGenerator(generator2, how_often, "Gomory");
+
+		auto generator3 = new CglKnapsackCover;
+		impl->generators.emplace_back(generator3);
+		impl->model->addCutGenerator(generator3, how_often, "Knapsack");
+
+		auto generator4 = new CglRedSplit;
+		impl->generators.emplace_back(generator4);
+		// try larger limit
+		generator4->setLimit(200);
+		//impl->model->addCutGenerator(generator4, how_often, "RedSplit");
+
+		auto generator5 = new CglClique;
+		impl->generators.emplace_back(generator5);
+		generator5->setStarCliqueReport(false);
+		generator5->setRowCliqueReport(false);
+		impl->model->addCutGenerator(generator5, how_often, "Clique");
+
+		auto generator6 = new CglOddHole;
+		impl->generators.emplace_back(generator6);
+		generator6->setMinimumViolation(0.005);
+		generator6->setMinimumViolationPer(0.00002);
+		// try larger limit
+		generator6->setMaximumEntries(200);
+		//impl->model->addCutGenerator(generator6, how_often, "OddHole");
+
+		auto mixedGen = new CglMixedIntegerRounding2;
+		impl->generators.emplace_back(mixedGen);
+		impl->model->addCutGenerator(mixedGen, how_often, "MixedIntegerRounding");
+		
+		auto flowGen = new CglFlowCover;
+		impl->generators.emplace_back(flowGen);
+		impl->model->addCutGenerator(flowGen, how_often, "FlowCover");
+
+		int numberGenerators = impl->model->numberCutGenerators();
+		for (int iGenerator = 0; iGenerator < numberGenerators; iGenerator++) {
+			CbcCutGenerator * generator = impl->model->cutGenerator(iGenerator);
+			generator->setTiming(true);
+		}
+
+		/*
+		CbcRounding heuristic1(*impl->model);
+		impl->model->addHeuristic(&heuristic1);
+
+		// And local search when new solution found
+
+		CbcHeuristicLocal heuristic2(*impl->model);
+		impl->model->addHeuristic(&heuristic2);
+
+		// Do initial solve to continuous
+		impl->model->initialSolve();
+
+		// Could tune more
+		double objValue = impl->model->solver()->getObjSense() * impl->model->solver()->getObjValue();
+		double minimumDropA=CoinMin(1.0,fabs(objValue)*1.0e-3+1.0e-4);
+		double minimumDrop= fabs(objValue)*1.0e-4+1.0e-4;
+		printf("min drop %g (A %g)\n",minimumDrop,minimumDropA);
+		impl->model->setMinimumDrop(minimumDrop);
+		*/
+
+		// Do complete search
+		impl->model->branchAndBound();
+	}
+
+	return impl->parse_solution();
+}
+
+bool IP::next_solution()
+{
+	OsiSolverInterface * refSolver = nullptr;
+	OsiSolverInterface* solver = nullptr;
+	const double * bestSolution = nullptr;
+	const double * objective = nullptr;
+
+	if (impl->use_osi()) {
+		refSolver = impl->problem.get();
+		solver = impl->problem.get();
+
+		bestSolution = solver->getColSolution();
+		objective = solver->getObjCoefficients();
+	}
+	else {
+		refSolver = impl->model->referenceSolver();
+		solver = impl->model->solver();
+
+		bestSolution = impl->model->bestSolution();
+		objective = refSolver->getObjCoefficients();	
+	}
+
+	//
+	// We add two new rows to the problem in order to get the
+	// next solution. If the current solution is x = (1, 0, 1),
+	//
+	//    (a)  (1 - x1) + x2 + (1 - x3) >= 1
+	//    (b)  objective(x) == *optimal*.
+	//
+	CoinPackedVector solution_cut, objective_cut;
+	double best_objective = 0;
+	double solution_rhs = 1.0;
+	for (int iColumn = 0; iColumn < impl->solution.size(); iColumn++) {
+		double value = impl->solution[iColumn];
+		if (solver->isInteger(iColumn)) {
+			// only works for 0-1 variables
+			// double check integer
+			attest (fabs(floor(value+0.5)-value)<1.0e-5);
+			if (value>0.5) {
+			// at 1.0
+			solution_cut.insert(iColumn,-1.0);
+			solution_rhs -= 1.0;
+			} else {
+				// at 0.0
+				solution_cut.insert(iColumn,1.0);
+			}
+		}
+
+		best_objective += value * objective[iColumn];
+		objective_cut.insert(iColumn, objective[iColumn]);
+		refSolver->setObjCoeff(iColumn, 0.0);
+	}
+
+    // now add cut
+	refSolver->addRow(solution_cut, solution_rhs, COIN_DBL_MAX);
+	refSolver->addRow(objective_cut, best_objective, best_objective);
+
+	if (impl->use_osi()) {
+	}
+	else {
+		impl->model->resetToReferenceSolver();
+		//impl->model->setHotstartSolution(bestSolution, nullptr);
+
+		// Do complete search
+		impl->model->branchAndBound();
+	}
+
+	return impl->parse_solution();
 }
 
 size_t IP::get_number_of_variables() const

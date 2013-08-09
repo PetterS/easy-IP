@@ -10,7 +10,7 @@ int main()
 	using namespace std;
 
 	IP ip;
-	int n = 2;
+	int n = 3;
 	auto P = ip.add_boolean_cube(n*n, n*n, n*n);
 
 	// Exactly one indicator equal to 1.
@@ -70,15 +70,15 @@ int main()
 	}
 
 	const char* given[] = {"***" "***" "***",
-	                       "***" "***" "***",
+	                       "*1*" "*4*" "*7*",
 	                       "***" "***" "***",
 
 	                       "***" "123" "***",
-	                       "***" "456" "***",
+	                       "*2*" "456" "*8*",
 	                       "***" "789" "***",
 
 	                       "***" "***" "***",
-	                       "***" "***" "***",
+	                       "*3*" "*6*" "*9*",
 	                       "***" "***" "***"};
 
 	//const char* given[] = {"**" "**",
@@ -98,24 +98,26 @@ int main()
 		}
 	}
 
-	//ip.set_external_solver(IP::CPLEX);
+	//ip.set_external_solver(IP::MOSEK);
 	ip.solve();
 
-	cout << endl;
-	for (int i = 0; i < n*n; ++i) {
-		for (int j = 0; j < n*n; ++j) {
-			for (int k = 0; k < n*n; ++k) {
-				if (P[i][j][k].value()) {
-					cout << k+1;
+	do {
+		cout << endl;
+		for (int i = 0; i < n*n; ++i) {
+			for (int j = 0; j < n*n; ++j) {
+				for (int k = 0; k < n*n; ++k) {
+					if (P[i][j][k].value()) {
+						cout << k+1;
+					}
+				}
+				if (j%n == n-1) {
+					cout << ' ';
 				}
 			}
-			if (j%n == n-1) {
-				cout << ' ';
+			cout << endl;
+			if (i%n == n-1) {
+				cout << endl;
 			}
 		}
-		cout << endl;
-		if (i%n == n-1) {
-			cout << endl;
-		}
-	}
+	} while (ip.next_solution());
 }

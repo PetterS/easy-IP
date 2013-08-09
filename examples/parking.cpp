@@ -210,9 +210,13 @@ int main_program()
 		cout << endl;
 	};
 
-	attest(ip.solve(print_solution));
+	//ip.set_external_solver(IP::MOSEK);
+	attest(ip.solve());
 
-	print_solution();
+	do {
+		print_solution();
+	} while (ip.next_solution());
+
 
 	return 0;
 }
