@@ -104,6 +104,22 @@ public:
 		}
 
 		add_constraint(4, turn_sum, 4);
+
+		// Forbid the two configurations
+		//
+ 		//  01     10
+		//  10 and 01
+		//
+		// This is not completely correct, but the code
+		// above can not handle them.
+		for (int i = 0; i < m + 1; ++i) {
+			for (int j = 0; j < n + 1; ++j) {
+				add_constraint(padded_grid[i][i] + (1 - padded_grid[i+1][j]) +
+				               (1 - padded_grid[i][j+1]) + padded_grid[i+1][j+1] <= 3);
+				add_constraint((1 - padded_grid[i][i]) + padded_grid[i+1][j] +
+				               padded_grid[i][j+1] + (1 - padded_grid[i+1][j+1]) <= 3);
+			}
+		}
 	}
 };
 
