@@ -9,11 +9,19 @@ using std::size_t;
 
 #include <easy-ip.h>
 
+//
+// This class adds connectivity constraints to the IP class.
+// It does so in two different ways, but they both result in
+// problems that are quite difficult to solve.
+//
 class MyIP : 
 	public IP
 {
 public:
-	void add_connected_constraint(const vector<vector<BooleanVariable>>& grid)
+
+	// The first way is based on following the perimeter around the 
+	// area and counting left and right turns.
+	void add_connected_constraint_perimeter(const vector<vector<BooleanVariable>>& grid)
 	{
 		auto m = grid.size();
 		if (m == 0) return;
@@ -62,8 +70,8 @@ public:
 				turn_sum -= v2;
 			};
 
-		for (int i = 0; i < m + 1; ++i) {
-			for (int j = 0; j < n + 1; ++j) {
+		for (size_t i = 0; i < m + 1; ++i) {
+			for (size_t j = 0; j < n + 1; ++j) {
 
 				//  X
 				//  YX
@@ -107,7 +115,7 @@ public:
 
 		// Forbid the two configurations
 		//
- 		//  01     10
+		//  01     10
 		//  10 and 01
 		//
 		// This is not completely correct, but the code
@@ -121,6 +129,85 @@ public:
 			}
 		}
 	}
+
+	// The second way is based on adding flow to one square and
+	// requiring it to dissipate through the grid.
+	void add_connected_constraint_flow(const vector<vector<BooleanVariable>>& grid,
+	                                   int start_i, int start_j)
+	{
+		auto m = grid.size();
+		if (m == 0) return;
+		auto n = grid[0].size();
+
+		auto num_elements = double(m * n);
+
+		vector<vector<Sum>> node_balance(m, vector<Sum>(n, 0.0));
+		Sum number_of_active_nodes = 0;
+
+		for (size_t i = 0; i < m; ++i) {
+			for (size_t j = 0; j < n; ++j) {
+
+				number_of_active_nodes += grid[i][j];
+
+				if (i < m - 1) {
+					auto fij = add_variable(Real);
+					node_balance[i][j]   += fij;
+					node_balance[i+1][j] -= fij;
+
+					add_constraint( fij >= 0 );
+					add_constraint( fij <= num_elements*grid[i][j] );
+					add_constraint( fij <= num_elements*grid[i+1][j] );
+				}
+
+				if (i > 0) {
+					auto fij = add_variable(Real);
+					node_balance[i][j]   += fij;
+					node_balance[i-1][j] -= fij;
+
+					add_constraint( fij >= 0 );
+					add_constraint( fij <= num_elements*grid[i][j] );
+					add_constraint( fij <= num_elements*grid[i-1][j] );
+				}
+
+				if (j < n - 1) {
+					auto fij = add_variable(Real);
+					node_balance[i][j]   += fij;
+					node_balance[i][j+1] -= fij;
+
+					add_constraint( fij >= 0 );
+					add_constraint( fij <= num_elements*grid[i][j] );
+					add_constraint( fij <= num_elements*grid[i][j+1] );
+				}
+
+				if (j > 0) {
+					auto fij = add_variable(Real);
+					node_balance[i][j]   += fij;
+					node_balance[i][j-1] -= fij;
+
+					add_constraint( fij >= 0 );
+					add_constraint( fij <= num_elements*grid[i][j] );
+					add_constraint( fij <= num_elements*grid[i][j-1] );
+				}
+			}
+		}
+
+		auto total_flow = add_variable(Real);
+		set_bounds(0, total_flow, num_elements);
+		add_constraint(total_flow == number_of_active_nodes);
+
+		node_balance[start_i][start_j] += total_flow;
+
+		for (int i = 0; i < m; ++i) {
+			for (int j = 0; j < n; ++j) {
+				auto f_it = add_variable(Real);
+				set_bounds(0, f_it, 1);
+				node_balance[i][j] -= f_it;
+
+				add_constraint(node_balance[i][j] == 0);
+			}
+		}
+	}
+
 };
 
 int main_program()
@@ -136,8 +223,11 @@ int main_program()
 	// Transporation to parking spots.
 	auto T = ip.add_boolean_grid(n, n);
 
+	int starti = 0;
+	int startj = 1;
+
 	// Entrance to the parking lot.
-	ip.add_constraint( T[0][1] );
+	ip.add_constraint( T[starti][startj] );
 
 	// T[0][0] == 1
 	//. P P P P P
@@ -166,11 +256,35 @@ int main_program()
 	//P . P P . P
 	// 22
 
+	// T[0][1] == 1
+	// P . P P P P P P . P
+	// P . P . . . . . . P
+	// P . P P P P P P . P
+	// P . P   P P P P . P
+	// P . P P . . . . . P
+	// P . P P . P . P . P
+	// P . P P . P P P . P
+	// P . P P . P P P P P
+	// . . . . . . . . . .
+	// P P P P P P P P P P
+	// 61
+
+	// Border
+	/*
+	Sum above_border = 0;
+	for (int i = 0; i < n; ++i) {
+		above_border += T[0][i];
+	}
+	// There has to be an entrance.
+	ip.add_constraint(above_border >= 1);
+	*/
 
 	// We can not have both parking and transportation.
 	for (int i = 0; i < n; ++i) {
 		for (int j = 0; j < n; ++j) {
-			ip.add_constraint(P[i][j] + T[i][j] <= 1);
+			// Not allowing both to be zero seems to give a slightly
+			// stronger formulation.
+			ip.add_constraint(P[i][j] + T[i][j] == 1);
 		}
 	}
 
@@ -198,7 +312,8 @@ int main_program()
 
 	// The hardest part: the transport squares need to be
 	// connected to each other.
-	ip.add_connected_constraint(T);
+	ip.add_connected_constraint_perimeter(T);
+	//ip.add_connected_constraint_flow(T, starti, startj);
 
 	auto print_solution = [&] () 
 	{
@@ -227,7 +342,7 @@ int main_program()
 	};
 
 	//ip.set_external_solver(IP::MOSEK);
-	attest(ip.solve());
+	attest(ip.solve(print_solution));
 
 	do {
 		print_solution();
