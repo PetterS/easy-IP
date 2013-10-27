@@ -86,6 +86,8 @@ private:
 	{ }
 	template <typename A, typename B, typename C, typename D>
 	friend class std::map;
+	template <typename A, typename B>
+	friend struct std::pair;
 };
 
 /// Represents a boolean variable in order to enforce
