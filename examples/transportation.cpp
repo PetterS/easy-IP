@@ -90,6 +90,7 @@ void main_program()
 	// Solve linear program.
 	lp.solve();
 
+	cout << endl << endl;
 	for (auto p : all_places) {
 		for (auto m : all_places) {
 			if (shipment[p, m].value() > 0.1) {
