@@ -1,16 +1,21 @@
 # Author: petter.strandmark@gmail.com (Petter Strandmark)
 
 MACRO (CREATE_TEST NAME)
-	ADD_EXECUTABLE(test_${NAME} 
-	               test_${NAME}.cpp
+	ADD_EXECUTABLE(${NAME} 
+	               ${NAME}.cpp
 	               ${SPII_HEADERS})
 
-	TARGET_LINK_LIBRARIES(test_${NAME} easyip)
-
+	TARGET_LINK_LIBRARIES(${NAME} easyip)
+	SET_PROPERTY(TARGET ${NAME}         PROPERTY FOLDER "Tests")
 	ADD_TEST(NAME ${NAME}
-	         COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test_${NAME})
+	         COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${NAME})
 ENDMACRO (CREATE_TEST)
 
-CREATE_TEST(ip)
-CREATE_TEST(logical_expression)
-CREATE_TEST(sum)
+
+FILE(GLOB TEST_FILES test_*.cpp)
+FOREACH (TEST_FILE ${TEST_FILES})
+	GET_FILENAME_COMPONENT(TEST_NAME ${TEST_FILE} NAME_WE)
+	MESSAGE("-- Adding test: " ${TEST_NAME})
+	CREATE_TEST(${TEST_NAME})
+ENDFOREACH()
+

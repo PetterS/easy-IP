@@ -22,6 +22,7 @@ LIST(APPEND SEARCH_HEADERS /usr/local/homebrew/include) # Mac OS X
 LIST(APPEND SEARCH_HEADERS /opt/local/include)
 
 ENABLE_TESTING()
+SET(CTEST_OUTPUT_ON_FAILURE TRUE)
 
 # Change the default build type from Debug to Release, while still
 # supporting overriding the build type.
@@ -70,6 +71,7 @@ IF (MSVC)
   ADD_DEFINITIONS("-DNOMINMAX=1")
 ENDIF (MSVC)
 
+SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 
 #
 # Libraries
@@ -131,7 +133,21 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR})
 INCLUDE_DIRECTORIES(third-party/Catch)
 FILE(GLOB EASYIP_HEADERS ${CMAKE_SOURCE_DIR}/*.h)
 
-ADD_LIBRARY(easyip SHARED easy-ip.cpp easy-ip.h)
+FIND_PATH(EIGEN_INCLUDE NAMES Eigen/Dense)
+IF (NOT EXISTS ${EIGEN_INCLUDE})
+	MESSAGE("-- Did not find Eigen. You can specify EIGEN_INCLUDE.")
+ELSE()
+	MESSAGE("-- Found Eigen.")
+	INCLUDE_DIRECTORIES(${EIGEN_INCLUDE})
+ENDIF()
+
+#
+# Main library.
+#
+
+ADD_LIBRARY(easyip SHARED
+            easy-ip.cpp
+            ${EASYIP_HEADERS})
 
 TARGET_LINK_LIBRARIES(easyip ${CBC_LIB} ${CBCSOLVER_LIB} ${CGL_LIB} ${CLP_LIB} ${COINUTILS_LIB} ${OSI_LIB} ${OSI_CLP_LIB})
 if (${USE_MOSEK})
