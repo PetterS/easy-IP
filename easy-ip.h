@@ -274,6 +274,7 @@ public:
 	enum VariableType {Boolean, Binary = Boolean, Integer, Real};
 
 	IP();
+	IP(const IP&) = delete;
 	IP(IP&&);
 	~IP();
 
@@ -361,8 +362,6 @@ public:
 private:
 	class Implementation;
 	Implementation* impl;
-
-	IP(const IP&);
 };
 
 #endif
