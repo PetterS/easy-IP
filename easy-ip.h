@@ -172,10 +172,13 @@ EASY_IP_API Sum operator - (const Sum& lhs, Sum&& rhs);
 EASY_IP_API Sum operator - (Sum&& lhs, const Sum& rhs);
 EASY_IP_API Sum operator - (Sum&& lhs, Sum&& rhs);
 
-std::ostream& operator << (std::ostream& out, const Sum& sum)
+namespace
 {
-	out << sum.value();
-	return out;
+	std::ostream& operator << (std::ostream& out, const Sum& sum)
+	{
+		out << sum.value();
+		return out;
+	}
 }
 
 /// A weighted sum of several variables (plus a constant).
@@ -358,6 +361,23 @@ public:
 	/// This allows any interface to be created, e.g. OsiGrbSolverInterface,
 	/// which this library might not know about.
 	std::unique_ptr<OsiSolverInterface> get_problem(std::unique_ptr<OsiSolverInterface> existing_solver = nullptr);
+
+
+protected:
+	vector<double>& get_rhs_lower();
+	vector<double>& get_rhs_upper();
+	vector<int>& get_rows();
+	vector<int>& get_cols();
+	vector<double>& get_values();
+
+	const vector<double>& get_var_lb() const;
+	const vector<double>& get_var_ub() const;
+	const vector<double>& get_cost() const;
+	const vector<std::size_t>& get_integer_variables() const;
+
+	size_t get_variable_index(const Variable& x) const { return x.index; }
+
+	vector<double>& get_solution();
 
 private:
 	class Implementation;

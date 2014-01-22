@@ -655,6 +655,12 @@ void IP::add_constraint(double L, const Sum& sum, double U)
 {
 	impl->check_creator(sum);
 
+	//std::cerr << L-sum.constant << " <= ";
+	//for (int i = 0; i < sum.cols.size(); ++i) {
+	//	std::cerr << sum.values[i] << "*x" << sum.cols[i] << " ";
+	//}
+	//std::cerr << " <= " << U-sum.constant << std::endl;
+
 	impl->rhs_lower.push_back(L - sum.constant);
 	impl->rhs_upper.push_back(U - sum.constant);
 	auto row_index = impl->rhs_upper.size() - 1;
@@ -1213,3 +1219,16 @@ void IP::clear()
 
 	impl->integer_variables.clear();
 }
+
+vector<double>& IP::get_rhs_lower() { return impl->rhs_lower; }
+vector<double>& IP::get_rhs_upper() { return impl->rhs_upper; }
+vector<int>& IP::get_rows() { return impl->rows; }
+vector<int>& IP::get_cols() { return impl->cols; }
+vector<double>& IP::get_values() { return impl->values; }
+
+const vector<double>& IP::get_var_lb() const { return impl->var_lb; }
+const vector<double>& IP::get_var_ub() const { return impl->var_ub; }
+const vector<double>& IP::get_cost() const { return impl->cost; }
+const vector<std::size_t>& IP::get_integer_variables() const { return impl->integer_variables; }
+
+vector<double>& IP::get_solution() { return impl->solution; }
