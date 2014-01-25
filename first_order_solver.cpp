@@ -201,6 +201,112 @@ bool first_order_primal_dual_solve(Eigen::VectorXd* x_ptr,    /// Primal variabl
 }
 
 
+bool EASY_IP_API first_order_admm_solve(Eigen::VectorXd* x_ptr,
+                                        const Eigen::VectorXd& c,
+                                        const Eigen::VectorXd& lb,
+                                        const Eigen::VectorXd& ub,
+                                        const Eigen::SparseMatrix<double>& A,
+                                        const Eigen::VectorXd& b,
+                                        const FirstOrderOptions& options)
+{
+	using namespace Eigen;
+	using namespace std;
+
+	VectorXd& x = *x_ptr;
+
+	const auto n = x.size();
+	const auto m = A.rows();
+	attest(c.size() == n);
+	attest(A.cols() == n);
+
+	VectorXd z(n);
+	z.setZero();
+	VectorXd u(n);
+	u.setZero();
+
+	const double rho = 10;
+
+	
+	vector<Triplet<double>> triplets;
+
+	for (auto j = decltype(n)(0); j < n; ++j) {
+		triplets.emplace_back(j, j, rho);
+	}
+
+	for (int k = 0; k < A.outerSize(); ++k) {
+		for (SparseMatrix<double>::InnerIterator it(A, k); it; ++it) {
+			auto i = it.row();
+			auto j = it.col();
+			auto value = it.value();
+			
+			triplets.emplace_back(j    , i + n, value);
+			triplets.emplace_back(n + i, j    , value);
+		}
+	}
+	SparseMatrix<double, ColMajor> System(n + m, n + m);
+	System.setFromTriplets(triplets.begin(), triplets.end());
+	System.makeCompressed();
+
+	/*cerr << "System = " << endl << System.toDense() << endl << endl;*/
+
+	SparseLU<SparseMatrix<double, ColMajor>, COLAMDOrdering<SparseMatrix<double, ColMajor>::Index> >  solver;
+	solver.analyzePattern(System);
+	solver.factorize(System);
+	auto computation_info = solver.info();
+	if (computation_info != Success) {
+		if (computation_info == NumericalIssue) {
+			throw runtime_error("Eigen::NumericalIssue");
+		}
+		else if (computation_info == NoConvergence) {
+			throw runtime_error("Eigen::NoConvergence ");
+		}
+		else if (computation_info == InvalidInput) {
+			throw runtime_error("Eigen::InvalidInput ");
+		}
+		else {
+			throw runtime_error("Unknown Eigen error.");
+		}
+	}
+
+	VectorXd x_prev(n);
+	VectorXd z_prev(m);
+
+	VectorXd lhs(m + n);
+	VectorXd xv(m + n);
+
+	size_t iteration;
+	for (iteration = 1; iteration <= options.maximum_iterations; ++iteration) {
+		bool should_check_convergence = options.print_interval <= 1 || iteration % options.print_interval == 1;
+
+		x_prev = x;
+		if (should_check_convergence) {
+			z_prev = z;
+		}
+
+		lhs.block(0, 0, n, 1) = -c + rho*(z - u);
+		lhs.block(n, 0, m, 1) = b;
+		xv = solver.solve(lhs);
+		x = xv.block(0, 0, n, 1);
+
+		z = x + u;
+		for (ptrdiff_t i = 0; i < n; ++i) {
+			z(i) = max(lb(i), min(ub(i), z(i)));
+		}
+
+		u = u + x - z;
+
+		if (should_check_convergence) {
+			if (check_convergence_and_log(iteration, x, &x_prev, z, z_prev, c, A, b, options)) {
+				// TODO
+				//break;
+			}
+		}
+	}
+
+	return true;
+}
+
+
 void FirstOrderProblem::check_invariants()
 {
 	auto n = get_cost().size();

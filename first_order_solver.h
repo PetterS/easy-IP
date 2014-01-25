@@ -49,6 +49,14 @@ bool EASY_IP_API first_order_primal_dual_solve(Eigen::VectorXd* x,        /// Pr
                                                const Eigen::VectorXd& b,  /// Right-hand side of constraints.
                                                const FirstOrderOptions& options);
 
+bool EASY_IP_API first_order_admm_solve(Eigen::VectorXd* x,        /// Primal variables (in/out).
+                                        const Eigen::VectorXd& c,  /// Objective function.
+                                        const Eigen::VectorXd& lb, /// Lower bound on x.
+                                        const Eigen::VectorXd& ub, /// Upper bound on x.
+                                        const Eigen::SparseMatrix<double>& A,   /// Equality constraint matrix.
+                                        const Eigen::VectorXd& b,  /// Right-hand side of constraints.
+                                        const FirstOrderOptions& options);
+
 class EASY_IP_API FirstOrderProblem
 	: public IP
 {

@@ -43,7 +43,7 @@ TEST_CASE("Strange_convergence")
 
 	// From my first implementation, which obtains similar
 	// convergence plots as the paper.
-	vector<double> ground_truth = 
+	const vector<double> ground_truth = 
 		{-5.550000,
 		-11.359921,
 		-14.174585,
@@ -66,14 +66,48 @@ TEST_CASE("Strange_convergence")
 		-10.233576};
 
 	for (size_t i = 0; i < ground_truth.size(); ++i) {
+		CAPTURE(i);
+		CAPTURE(c.dot(x));
+		CAPTURE(ground_truth[i]);
+
 		options.maximum_iterations = i + 1;
 		x.setZero();
 		y.setZero();
 		first_order_primal_dual_solve(&x, &y, c, lb, ub, A, b, options);
+		REQUIRE(abs(c.dot(x) - ground_truth[i]) < 1e-6);
+	}
+
+	const vector<double> ground_truth_admm =
+		{-14.5663,
+		 -17.8405,
+		 -16.0170,
+		 -15.6621,
+		 -14.4768,
+		 -14.0220,
+		 -13.8674,
+		 -13.8093,
+		 -13.2956,
+		 -12.4653,
+		 -11.3204,
+		  -9.8875,
+		  -9.2396,
+		  -9.5241,
+		  -9.1223,
+		  -8.7106,
+		  -8.2899,
+		  -7.8555,
+		  -7.4031,
+		  -6.9324};
+
+	for (size_t i = 0; i < ground_truth_admm.size(); ++i) {
 		CAPTURE(i);
 		CAPTURE(c.dot(x));
-		CAPTURE(ground_truth[i]);
-		REQUIRE(abs(c.dot(x) - ground_truth[i]) < 1e-6);
+		CAPTURE(ground_truth_admm[i]);
+
+		options.maximum_iterations = i + 1;
+		x.setZero();
+		first_order_admm_solve(&x, c, lb, ub, A, b, options);
+		REQUIRE((abs(c.dot(x) - ground_truth_admm[i]) / abs(c.dot(x))) < 1e-5);
 	}
 
 	options.maximum_iterations = 20000;
@@ -87,6 +121,16 @@ TEST_CASE("Strange_convergence")
 	cerr << "<c|x> = " << c.dot(x) << endl;
 	
 	CHECK( abs(c.dot(x) - 2.0) <= 1e-6);
+
+	options.maximum_iterations = 2000;
+	options.print_interval = 100;
+	x.setZero();
+	first_order_admm_solve(&x, c, lb, ub, A, b, options);
+
+	cerr << "x     = " << x.transpose() << endl;
+	cerr << "<c|x> = " << c.dot(x) << endl;
+
+	CHECK(abs(c.dot(x) - 2.0) <= 1e-6);
 }
 
 TEST_CASE("FirstOrderProblem/tiny")
