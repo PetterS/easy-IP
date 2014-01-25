@@ -124,6 +124,7 @@ TEST_CASE("Strange_convergence")
 
 	options.maximum_iterations = 2000;
 	options.print_interval = 100;
+	options.tolerance = 0;
 	x.setZero();
 	first_order_admm_solve(&x, c, lb, ub, A, b, options);
 
@@ -153,6 +154,10 @@ TEST_CASE("FirstOrderProblem/tiny")
 	REQUIRE(problem.solve_first_order(options));
 	CHECK(x.value() >= 0.999);
 	CHECK(y.value() <= 0.001);
+
+	REQUIRE(problem.solve_admm(options));
+	CHECK(x.value() >= 0.999);
+	CHECK(y.value() <= 0.001);
 }
 
 TEST_CASE("FirstOrderProblem/tiny/inequality1")
@@ -173,6 +178,10 @@ TEST_CASE("FirstOrderProblem/tiny/inequality1")
 	options.print_interval = 1;
 	options.log_function = [](const string& str) { cerr << str << endl; };
 	REQUIRE(problem.solve_first_order(options));
+	CHECK(x.value() >= 0.999);
+	CHECK(y.value() <= 0.001);
+
+	REQUIRE(problem.solve_admm(options));
 	CHECK(x.value() >= 0.999);
 	CHECK(y.value() <= 0.001);
 }
@@ -197,6 +206,10 @@ TEST_CASE("FirstOrderProblem/tiny/inequality2")
 	REQUIRE(problem.solve_first_order(options));
 	CHECK(x.value() <= 0.001);
 	CHECK(y.value() <= 0.001);
+
+	REQUIRE(problem.solve_admm(options));
+	CHECK(x.value() <= 0.001);
+	CHECK(y.value() <= 0.001);
 }
 
 TEST_CASE("FirstOrderProblem/no_integer_variables")
@@ -205,6 +218,7 @@ TEST_CASE("FirstOrderProblem/no_integer_variables")
 	auto x1 = problem.add_variable(IP::Integer);
 	FirstOrderOptions options;
 	CHECK_THROWS(problem.solve_first_order(options));
+	CHECK_THROWS(problem.solve_admm(options));
 }
 
 TEST_CASE("FirstOrderProblem/inequalities")
@@ -245,6 +259,9 @@ TEST_CASE("FirstOrderProblem/inequalities")
 
 	REQUIRE(problem.solve_first_order(options));
 	CHECK(abs(obj.value() - optimal_objective) <= 1e-4);
+
+	REQUIRE(problem.solve_admm(options));
+	CHECK(abs(obj.value() - optimal_objective) <= 1e-4);
 }
 
 TEST_CASE("FirstOrderProblem/infeasible")
@@ -257,8 +274,7 @@ TEST_CASE("FirstOrderProblem/infeasible")
 
 	problem.set_bounds(0.0, x, 1.0);
 	problem.set_bounds(0.0, y, 1.0);
-	problem.add_constraint(x + y == 1.0);
-	problem.add_constraint(x + y == 2.0);
+	problem.add_constraint(x + y == 3.0);
 	problem.add_objective(-2.0*x - 1.0*y);
 
 	FirstOrderOptions options;
@@ -266,4 +282,5 @@ TEST_CASE("FirstOrderProblem/infeasible")
 	options.print_interval = 100;
 	options.log_function = [](const string& str) { cerr << str << endl; };
 	REQUIRE_FALSE(problem.solve_first_order(options));
+	REQUIRE_FALSE(problem.solve_admm(options));
 }

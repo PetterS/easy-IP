@@ -62,10 +62,15 @@ class EASY_IP_API FirstOrderProblem
 {
 public:
 	bool solve_first_order(const FirstOrderOptions& options);
+	bool solve_admm(const FirstOrderOptions& options);
+
 protected:
 	void convert_into_equality_constrained_problem();
+	void get_system_matrix(Eigen::SparseMatrix<double>* A,
+	                       const FirstOrderOptions& options);
+
 private:
-	void check_invariants();
+	void check_invariants() const;
 };
 
 #endif

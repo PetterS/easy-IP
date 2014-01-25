@@ -365,10 +365,15 @@ public:
 
 protected:
 	vector<double>& get_rhs_lower();
+	const vector<double>& get_rhs_lower() const;
 	vector<double>& get_rhs_upper();
+	const vector<double>& get_rhs_upper() const;
 	vector<int>& get_rows();
+	const vector<int>& get_rows() const;
 	vector<int>& get_cols();
+	const vector<int>& get_cols() const;
 	vector<double>& get_values();
+	const vector<double>& get_values() const;
 
 	const vector<double>& get_var_lb() const;
 	const vector<double>& get_var_ub() const;

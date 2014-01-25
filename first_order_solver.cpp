@@ -23,18 +23,31 @@
 
 double get_feasibility_error(const Eigen::VectorXd& x,
                              Eigen::VectorXd* temp_storage,
+                             const Eigen::VectorXd& lb,
+                             const Eigen::VectorXd& ub,
                              const Eigen::SparseMatrix<double>& A,
                              const Eigen::VectorXd& b)
 {
 	using namespace std;
 	const auto m = A.rows();
+	const auto n = A.cols();
+	attest(lb.rows() == n);
+	attest(ub.rows() == n);
+	attest(x.rows() == n);
+	attest(b.rows() == m);
 
 	double feasibility_error = 0;
 	*temp_storage = A*x - b;
 	for (ptrdiff_t i = 0; i < m; ++i) {
 		feasibility_error = max(feasibility_error, abs((*temp_storage)(i)));
 	}
-	return feasibility_error;
+
+	for (ptrdiff_t i = 0; i < n; ++i) {
+		feasibility_error = max(feasibility_error, lb(i) - x(i));
+		feasibility_error = max(feasibility_error, x(i) - ub(i));
+	}
+
+	return feasibility_error / max(x.maxCoeff(), -x.minCoeff());
 }
 
 // Will use x_prev as a temporary storage after
@@ -45,6 +58,8 @@ bool check_convergence_and_log(std::size_t iteration,
                                const Eigen::VectorXd& y,
                                const Eigen::VectorXd& y_prev,
                                const Eigen::VectorXd& c,
+                               const Eigen::VectorXd& lb,
+                               const Eigen::VectorXd& ub,
                                const Eigen::SparseMatrix<double>& A,
                                const Eigen::VectorXd& b,
                                const FirstOrderOptions& options)
@@ -76,7 +91,7 @@ bool check_convergence_and_log(std::size_t iteration,
 
 	double relative_change_x = get_relative_change(x, *x_prev);
 	double relative_change_y = get_relative_change(y, y_prev);
-	double feasibility_error = get_feasibility_error(x, x_prev, A, b);
+	double feasibility_error = get_feasibility_error(x, x_prev, lb, ub, A, b);
 
 	if (relative_change_x < options.tolerance && relative_change_y < options.tolerance) {
 		is_converged = true;
@@ -188,15 +203,15 @@ bool first_order_primal_dual_solve(Eigen::VectorXd* x_ptr,    /// Primal variabl
 		y = y + Svec.asDiagonal() * (A*(2 * x - x_prev) - b);
 
 		if (should_check_convergence) {
-			if (check_convergence_and_log(iteration, x, &x_prev, y, y_prev, c, A, b, options)) {
+			if (check_convergence_and_log(iteration, x, &x_prev, y, y_prev, c, lb, ub, A, b, options)) {
 				break;
 			}
 		}
 	}
 
-	check_convergence_and_log(0, x, &x_prev, y, y_prev, c, A, b, options);
+	check_convergence_and_log(0, x, &x_prev, y, y_prev, c, lb, ub, A, b, options);
 
-	double feasibility_error = get_feasibility_error(x, &x_prev, A, b);
+	double feasibility_error = get_feasibility_error(x, &x_prev, lb, ub, A, b);
 	return feasibility_error < 100*options.tolerance;
 }
 
@@ -243,7 +258,9 @@ bool EASY_IP_API first_order_admm_solve(Eigen::VectorXd* x_ptr,
 			triplets.emplace_back(n + i, j    , value);
 		}
 	}
-	SparseMatrix<double, ColMajor> System(n + m, n + m);
+
+	typedef SparseMatrix<double>::Index index;
+	SparseMatrix<double, ColMajor> System(index(n + m), index(n + m));
 	System.setFromTriplets(triplets.begin(), triplets.end());
 	System.makeCompressed();
 
@@ -278,8 +295,8 @@ bool EASY_IP_API first_order_admm_solve(Eigen::VectorXd* x_ptr,
 	for (iteration = 1; iteration <= options.maximum_iterations; ++iteration) {
 		bool should_check_convergence = options.print_interval <= 1 || iteration % options.print_interval == 1;
 
-		x_prev = x;
 		if (should_check_convergence) {
+			x_prev = x;
 			z_prev = z;
 		}
 
@@ -296,18 +313,19 @@ bool EASY_IP_API first_order_admm_solve(Eigen::VectorXd* x_ptr,
 		u = u + x - z;
 
 		if (should_check_convergence) {
-			if (check_convergence_and_log(iteration, x, &x_prev, z, z_prev, c, A, b, options)) {
+			if (check_convergence_and_log(iteration, x, &x_prev, z, z_prev, c, lb, ub, A, b, options)) {
 				// TODO
-				//break;
+				break;
 			}
 		}
 	}
 
-	return true;
+	double feasibility_error = get_feasibility_error(x, &x_prev, lb, ub, A, b);
+	return feasibility_error < 100 * options.tolerance;
 }
 
 
-void FirstOrderProblem::check_invariants()
+void FirstOrderProblem::check_invariants() const
 {
 	auto n = get_cost().size();
 	attest(get_var_lb().size() == n);
@@ -354,8 +372,8 @@ void FirstOrderProblem::convert_into_equality_constrained_problem()
 	check_invariants();
 }
 
-
-bool FirstOrderProblem::solve_first_order(const FirstOrderOptions& options)
+void FirstOrderProblem::get_system_matrix(Eigen::SparseMatrix<double>* A,
+                                          const FirstOrderOptions& options)
 {
 	using namespace Eigen;
 	using namespace std;
@@ -393,8 +411,22 @@ bool FirstOrderProblem::solve_first_order(const FirstOrderOptions& options)
 		attest(lb == ub);
 	}
 
-	SparseMatrix<double> A(static_cast<int>(m), static_cast<int>(n));
-	A.setFromTriplets(sparse_indices.begin(), sparse_indices.end());
+	A->resize(static_cast<int>(m), static_cast<int>(n));
+	A->setFromTriplets(sparse_indices.begin(), sparse_indices.end());
+
+	check_invariants();
+}
+
+bool FirstOrderProblem::solve_first_order(const FirstOrderOptions& options)
+{
+	using namespace Eigen;
+	using namespace std;
+
+	SparseMatrix<double> A;
+	get_system_matrix(&A, options);
+
+	auto n = get_cost().size();
+	auto m = get_rhs_lower().size();
 
 	Map<const VectorXd> lb(get_var_lb().data(), n);
 	Map<const VectorXd> ub(get_var_ub().data(), n);
@@ -404,6 +436,34 @@ bool FirstOrderProblem::solve_first_order(const FirstOrderOptions& options)
 	VectorXd y(m); y.setZero();
 
 	bool feasible = first_order_primal_dual_solve(&x, &y, c, lb, ub, A, b, options);
+
+	get_solution().resize(n);
+	for (size_t j = 0; j < n; ++j) {
+		get_solution()[j] = x(j);
+	}
+
+	return feasible;
+}
+
+
+bool FirstOrderProblem::solve_admm(const FirstOrderOptions& options)
+{
+	using namespace Eigen;
+	using namespace std;
+
+	SparseMatrix<double> A;
+	get_system_matrix(&A, options);
+
+	auto n = get_cost().size();
+	auto m = get_rhs_lower().size();
+
+	Map<const VectorXd> lb(get_var_lb().data(), n);
+	Map<const VectorXd> ub(get_var_ub().data(), n);
+	Map<const VectorXd> b(get_rhs_upper().data(), m);
+	Map<const VectorXd> c(get_cost().data(), n);
+	VectorXd x(n); x.setZero();
+
+	bool feasible = first_order_admm_solve(&x, c, lb, ub, A, b, options);
 
 	get_solution().resize(n);
 	for (size_t j = 0; j < n; ++j) {
