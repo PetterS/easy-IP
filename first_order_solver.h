@@ -33,6 +33,9 @@ struct FirstOrderOptions
 	// Also the solution is considered feasible if the maximum error
 	// is less than 100 times this value.
 	double tolerance = 1e-9;
+
+	// Only used by the ADMM algorithm.
+	double rho = 10;
 };
 
 /// Solves the linear program

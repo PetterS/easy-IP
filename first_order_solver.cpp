@@ -239,7 +239,7 @@ bool EASY_IP_API first_order_admm_solve(Eigen::VectorXd* x_ptr,
 	VectorXd u(n);
 	u.setZero();
 
-	const double rho = 10;
+	const double rho = options.rho;
 
 	
 	vector<Triplet<double>> triplets;
