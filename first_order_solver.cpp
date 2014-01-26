@@ -38,6 +38,7 @@ double get_feasibility_error(const Eigen::VectorXd& x,
 
 	double feasibility_error = 0;
 	*temp_storage = A*x - b;
+
 	for (ptrdiff_t i = 0; i < m; ++i) {
 		feasibility_error = max(feasibility_error, abs((*temp_storage)(i)));
 	}
@@ -47,12 +48,17 @@ double get_feasibility_error(const Eigen::VectorXd& x,
 		feasibility_error = max(feasibility_error, x(i) - ub(i));
 	}
 
-	return feasibility_error / max(x.maxCoeff(), -x.minCoeff());
+	double denominator = max(x.maxCoeff(), -x.minCoeff());
+	if (denominator <= 1e-10) {
+		denominator = 1;
+	}
+
+	return feasibility_error / denominator;
 }
 
 // Will use x_prev as a temporary storage after
 // examining it.
-bool check_convergence_and_log(std::size_t iteration,
+bool check_convergence_and_log(std::ptrdiff_t iteration,
                                const Eigen::VectorXd& x,
                                Eigen::VectorXd* x_prev,
                                const Eigen::VectorXd& y,
@@ -78,13 +84,16 @@ bool check_convergence_and_log(std::size_t iteration,
 
 	auto get_relative_change = [iteration](const Eigen::VectorXd& x, const Eigen::VectorXd& x_prev) -> double
 	{
-		double relative_change = (x - x_prev).norm() / (x.norm() + x_prev.norm());
-		if (relative_change != relative_change) {
-			// Both x and x_prev were null vectors.
-			relative_change = 0;
-		}
-		if (iteration == 0) {
+		double relative_change;
+		if (iteration <= 0) {
 			relative_change = std::numeric_limits<double>::quiet_NaN();
+		}
+		else {
+			relative_change = (x - x_prev).norm() / (x.norm() + x_prev.norm());
+			if (relative_change != relative_change) {
+				// Both x and x_prev were null vectors.
+				relative_change = 0;
+			}
 		}
 		return relative_change;
 	};
@@ -100,7 +109,7 @@ bool check_convergence_and_log(std::size_t iteration,
 	if (options.log_function) {
 		ostringstream message;
 		message << setw(9);
-		if (iteration == 0) {
+		if (iteration == -1) {
 			message << "end";
 		}
 		else {
@@ -155,8 +164,11 @@ bool first_order_primal_dual_solve(Eigen::VectorXd* x_ptr,    /// Primal variabl
 	const SparseMatrix<double> AT = A.transpose();
 
 	if (options.log_function) {
-		options.log_function("   Iter         Objective     Rel. ch. x   Rel. ch. y   ||Ax - b||_inf");
+		options.log_function("   Iter         Objective     Rel. ch. x   Rel. ch. y   Infeasibility ");
 		options.log_function("----------------------------------------------------------------------");
+		x_prev.setConstant(std::numeric_limits<double>::quiet_NaN());
+		y_prev.setConstant(std::numeric_limits<double>::quiet_NaN());
+		check_convergence_and_log(0, x, &x_prev, y, y_prev, c, lb, ub, A, b, options);
 	}
 
 	// Compute preconditioners as in eq. (10) from [2], with alpha = 1.
@@ -209,7 +221,7 @@ bool first_order_primal_dual_solve(Eigen::VectorXd* x_ptr,    /// Primal variabl
 		}
 	}
 
-	check_convergence_and_log(0, x, &x_prev, y, y_prev, c, lb, ub, A, b, options);
+	check_convergence_and_log(-1, x, &x_prev, y, y_prev, c, lb, ub, A, b, options);
 
 	double feasibility_error = get_feasibility_error(x, &x_prev, lb, ub, A, b);
 	return feasibility_error < 100*options.tolerance;
@@ -290,6 +302,14 @@ bool EASY_IP_API first_order_admm_solve(Eigen::VectorXd* x_ptr,
 
 	VectorXd lhs(m + n);
 	VectorXd xv(m + n);
+
+	if (options.log_function) {
+		options.log_function("   Iter         Objective     Rel. ch. x   Rel. ch. z   ||Ax - b||_inf");
+		options.log_function("----------------------------------------------------------------------");
+		x_prev.setConstant(std::numeric_limits<double>::quiet_NaN());
+		z_prev.setConstant(std::numeric_limits<double>::quiet_NaN());
+		check_convergence_and_log(0, x, &x_prev, z, z_prev, c, lb, ub, A, b, options);
+	}
 
 	size_t iteration;
 	for (iteration = 1; iteration <= options.maximum_iterations; ++iteration) {
