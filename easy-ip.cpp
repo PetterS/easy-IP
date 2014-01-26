@@ -83,77 +83,116 @@ std::ostream& operator << (std::ostream& out, const BooleanVariable& variable)
 	return out;
 }
 
+class Sum::Implementation
+{
+public:
+	Implementation()
+		: constant(0.0),
+		  creator(nullptr)
+	{ }
+
+	Implementation(const Implementation& rhs)
+	{
+		*this = rhs;
+	}
+
+	Implementation& operator = (const Implementation& rhs)
+	{
+		cols = rhs.cols;
+		values = rhs.values;
+		constant = rhs.constant;
+		creator = rhs.creator;
+		//std::cerr << "Copy sum.\n";
+		//throw std::runtime_error("Copying took place.");
+		return *this;
+	}
+
+	Implementation(double constant_)
+		: constant(constant_),
+		  creator(nullptr)
+	{ }
+
+	Implementation(const Variable& variable)
+		: constant(0.0),
+		  creator(variable.creator)
+	{
+		cols.push_back(int(variable.index));
+		values.push_back(1.0);
+	}
+
+	double constant;
+	vector<int> cols;
+	vector<double> values;
+
+	const IP* creator;
+};
+
 Sum::Sum()
-	: constant(0.0),
-	  creator(nullptr)
+	: impl(new Implementation)
 { }
 
-Sum::Sum(const Sum& sum) 
-{
-	*this = sum;
-}
+Sum::Sum(const Sum& sum)
+	: impl(new Implementation(*sum.impl))
+{ }
 
 Sum& Sum::operator = (const Sum& sum)
 {
-	cols = sum.cols;
-	values = sum.values;
-	constant = sum.constant;
-	creator = sum.creator;
-	//std::cerr << "Copy sum.\n";
-	//throw std::runtime_error("Copying took place.");
+	*impl = *sum.impl;
 	return *this;
 }
 
 Sum::Sum(Sum&& sum)
+	: impl(nullptr)
 {
-	*this = std::move(sum);
+	impl = sum.impl;
+	sum.impl = nullptr;
 }
 
 Sum& Sum::operator = (Sum&& sum)
 {
-	cols = std::move(sum.cols);
-	values = std::move(sum.values);
-	constant = sum.constant;
-	creator = sum.creator;
-	//std::cerr << "Move sum.\n";
+	if (impl) {
+		delete impl;
+	}
+
+	impl = sum.impl;
+	sum.impl = nullptr;
 	return *this;
 }
 
 Sum::Sum(double constant_)
-	: constant(constant_),
-	  creator(nullptr)
+	: impl(new Implementation(constant_))
 { }
 
 Sum::Sum(const Variable& variable)
-	: constant(0.0), 
-	  creator(variable.creator)
-{
-	cols.push_back(int(variable.index));
-	values.push_back(1.0);
-}
+	: impl(new Implementation(variable))
+{ }
 
 Sum::~Sum()
-{ }
+{
+	if (impl) {
+		delete impl;
+	}
+}
 
 void Sum::add_term(double coeff, const Variable& variable)
 {
-	cols.push_back(static_cast<int>(variable.index));
-	values.push_back(coeff);
+	impl->cols.push_back(static_cast<int>(variable.index));
+	impl->values.push_back(coeff);
 }
 
 double Sum::value() const
 {
-	return creator->get_solution(*this);
+	return impl->creator->get_solution(*this);
 }
 
 Sum& Sum::operator += (const Sum& rhs)
 {
 	match_solvers(rhs);
 
-	constant += rhs.constant;
-	for (size_t i = 0; i < rhs.cols.size(); ++i) {
-		cols.push_back(rhs.cols[i]);
-		values.push_back(rhs.values[i]);
+	impl->constant += rhs.impl->constant;
+	for (size_t i = 0; i < rhs.impl->cols.size(); ++i) {
+		impl->cols.push_back(rhs.impl->cols[i]);
+		impl->values.push_back(rhs.impl->values[i]);
 	}
 	return *this;
 }
@@ -162,10 +201,10 @@ Sum& Sum::operator -= (const Sum& rhs)
 {
 	match_solvers(rhs);
 
-	constant -= rhs.constant;
-	for (size_t i = 0; i < rhs.cols.size(); ++i) {
-		cols.push_back(rhs.cols[i]);
-		values.push_back(-rhs.values[i]);
+	impl->constant -= rhs.impl->constant;
+	for (size_t i = 0; i < rhs.impl->cols.size(); ++i) {
+		impl->cols.push_back(rhs.impl->cols[i]);
+		impl->values.push_back(-rhs.impl->values[i]);
 	}
 	return *this;
 }
@@ -173,16 +212,16 @@ Sum& Sum::operator -= (const Sum& rhs)
 Sum& Sum::operator *= (double coeff)
 {
 	if (coeff == 0.0) {
-		values.clear();
-		cols.clear();
-		constant = 0.0;
+		impl->values.clear();
+		impl->cols.clear();
+		impl->constant = 0.0;
 		return *this;
 	}
 
-	for (auto& value : values) {
+	for (auto& value : impl->values) {
 		value *= coeff;
 	}
-	constant *= coeff;
+	impl->constant *= coeff;
 	return *this;
 }
 
@@ -264,8 +303,8 @@ Sum operator - (const Variable& variable)
 
 void Sum::negate()
 {
-	constant = -constant;
-	for (auto& value: values) {
+	impl->constant = -impl->constant;
+	for (auto& value : impl->values) {
 		value = -value;
 	}
 }
@@ -303,10 +342,10 @@ Sum operator - (Sum&& lhs, Sum&& rhs)
 
 void Sum::match_solvers(const Sum& sum)
 {
-	check(creator == nullptr || sum.creator == nullptr || creator == sum.creator,
+	check(impl->creator == nullptr || sum.impl->creator == nullptr || impl->creator == sum.impl->creator,
 	      "Variables from different solver can not be mixed.");
-	if (creator == nullptr) {
-		creator = sum.creator;
+	if (impl->creator == nullptr) {
+		impl->creator = sum.impl->creator;
 	}
 }
 
@@ -401,11 +440,11 @@ LogicalExpression implication(const BooleanVariable& antecedent, LogicalExpressi
 }
 
 Constraint::Constraint(const LogicalExpression& expression)
-	: lower_bound(1), upper_bound(static_cast<double>(expression.sum.values.size())), sum(expression.sum)
+	: lower_bound(1), upper_bound(static_cast<double>(expression.sum.impl->values.size())), sum(expression.sum)
 { }
 
 Constraint::Constraint(LogicalExpression&& expression)
-	: lower_bound(1), upper_bound(static_cast<double>(expression.sum.values.size())), sum(std::move(expression.sum))
+	: lower_bound(1), upper_bound(static_cast<double>(expression.sum.impl->values.size())), sum(std::move(expression.sum))
 { }
 
 Constraint::Constraint(double lower_bound_, const Sum& sum_, double upper_bound_)
@@ -491,8 +530,8 @@ ConstraintList operator && (ConstraintList&& lhs, Constraint&& rhs)
 class IP::Implementation
 {
 public:
-	Implementation()
-		: external_solver(IP::Default)
+	Implementation(const IP* creator_)
+		: creator(creator_), external_solver(IP::Default)
 	{ }
 
 	bool parse_solution();
@@ -520,18 +559,21 @@ public:
 	std::unique_ptr<CbcModel> model;
 	std::vector<std::unique_ptr<CglCutGenerator>> generators;
 
-	template<typename T>
-	void check_creator(const T& t) const;
+	void check_creator(const Variable& t) const;
+	void check_creator(const Sum& t) const;
+
+	const IP* creator;
 };
 
 IP::IP() 
-	: impl(new Implementation)
+	: impl(new Implementation(this))
 {
 };
 
 IP::IP(IP&& lhs) 
 	: impl(lhs.impl)
 {
+	impl->creator = this;
 	lhs.impl = nullptr;
 };
 
@@ -661,13 +703,13 @@ void IP::add_constraint(double L, const Sum& sum, double U)
 	//}
 	//std::cerr << " <= " << U-sum.constant << std::endl;
 
-	impl->rhs_lower.push_back(L - sum.constant);
-	impl->rhs_upper.push_back(U - sum.constant);
+	impl->rhs_lower.push_back(L - sum.impl->constant);
+	impl->rhs_upper.push_back(U - sum.impl->constant);
 	auto row_index = impl->rhs_upper.size() - 1;
-	for (size_t i = 0; i < sum.cols.size(); ++i) {
+	for (size_t i = 0; i < sum.impl->cols.size(); ++i) {
 		impl->rows.push_back(static_cast<int>(row_index));
-		impl->cols.push_back(sum.cols[i]);
-		impl->values.push_back(sum.values[i]);
+		impl->cols.push_back(sum.impl->cols[i]);
+		impl->values.push_back(sum.impl->values[i]);
 	}
 
 	attest(impl->rows.size() == impl->values.size());
@@ -706,17 +748,22 @@ void IP::add_objective(const Sum& sum)
 {
 	impl->check_creator(sum);
 
-	for (size_t i = 0; i < sum.cols.size(); ++i) {
-		impl->cost.at(sum.cols[i]) += sum.values[i];
+	for (size_t i = 0; i < sum.impl->cols.size(); ++i) {
+		impl->cost.at(sum.impl->cols[i]) += sum.impl->values[i];
 	}
 	// TODO: handle constant.
 }
 
-template<typename T>
-void IP::Implementation::check_creator(const T& t) const
+void IP::Implementation::check_creator(const Variable& t) const
 {
-	check(t.creator == nullptr || t.creator->impl == this,
+	check(t.creator == nullptr || t.creator == creator,
 	      "Variable comes from a different solver.");
+}
+
+void IP::Implementation::check_creator(const Sum& t) const
+{
+	check(t.impl->creator == nullptr || t.impl->creator == creator,
+		"Sum comes from a different solver.");
 }
 
 double IP::get_solution(const Variable& variable) const
@@ -737,9 +784,9 @@ double IP::get_solution(const Sum& sum) const
 {
 	impl->check_creator(sum);
 
-	double value = sum.constant;
-	for (size_t i = 0; i < sum.cols.size(); ++i) {
-		value += sum.values[i] * impl->solution.at(sum.cols[i]);
+	double value = sum.impl->constant;
+	for (size_t i = 0; i < sum.impl->cols.size(); ++i) {
+		value += sum.impl->values[i] * impl->solution.at(sum.impl->cols[i]);
 	}
 	return value;
 }

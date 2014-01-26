@@ -43,11 +43,6 @@ class OsiSolverInterface;
 #	define EASY_IP_API_EXTERN_TEMPLATE
 #endif // WIN32
 
-#ifdef _WIN32
-	EASY_IP_API_EXTERN_TEMPLATE template class EASY_IP_API std::vector<int>;
-	EASY_IP_API_EXTERN_TEMPLATE template class EASY_IP_API std::vector<double>;
-#endif
-
 void EASY_IP_API check(bool expr, const char* message);
 void EASY_IP_API assertion_failed(const char* expr, const char* file, int line);
 
@@ -145,11 +140,9 @@ public:
 	double value() const;
 
 protected:
-	double constant;
-	vector<int> cols;
-	vector<double> values;
+	class Implementation;
+	Implementation* impl;
 
-	const IP* creator;
 	void match_solvers(const Sum& sum);
 };
 
