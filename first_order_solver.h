@@ -38,20 +38,28 @@ struct FirstOrderOptions
 	double rho = 10;
 };
 
+enum class LinearConstraintType : char {Equality, LessThan, GreaterThan};
+
 /// Solves the linear program
 ///
 ///   minimize c·x
-///   such that Ax = b,
+///   such that Ax “op” b,  where “op” can be ≥, ≤, or = for each element.
 ///             l ≤ x ≤ u.
 bool EASY_IP_API first_order_primal_dual_solve(Eigen::VectorXd* x,        /// Primal variables (in/out).
                                                Eigen::VectorXd* y,        /// Dual variables (in/out).
                                                const Eigen::VectorXd& c,  /// Objective function.
                                                const Eigen::VectorXd& lb, /// Lower bound on x.
                                                const Eigen::VectorXd& ub, /// Upper bound on x.
-                                               const Eigen::SparseMatrix<double>& A,   /// Equality constraint matrix.
+                                               const Eigen::SparseMatrix<double>& A,   /// Constraint matrix.
                                                const Eigen::VectorXd& b,  /// Right-hand side of constraints.
+                                               const std::vector<LinearConstraintType>& constraint_types,
                                                const FirstOrderOptions& options);
 
+/// Solves the linear program
+///
+///   minimize c·x
+///   such that Ax = b,
+///             l ≤ x ≤ u.
 bool EASY_IP_API first_order_admm_solve(Eigen::VectorXd* x,        /// Primal variables (in/out).
                                         const Eigen::VectorXd& c,  /// Objective function.
                                         const Eigen::VectorXd& lb, /// Lower bound on x.

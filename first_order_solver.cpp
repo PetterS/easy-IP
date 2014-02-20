@@ -26,7 +26,8 @@ double get_feasibility_error(const Eigen::VectorXd& x,
                              const Eigen::VectorXd& lb,
                              const Eigen::VectorXd& ub,
                              const Eigen::SparseMatrix<double>& A,
-                             const Eigen::VectorXd& b)
+                             const Eigen::VectorXd& b,
+                             const std::vector<LinearConstraintType>& constraint_types)
 {
 	using namespace std;
 	const auto m = A.rows();
@@ -35,17 +36,26 @@ double get_feasibility_error(const Eigen::VectorXd& x,
 	attest(ub.rows() == n);
 	attest(x.rows() == n);
 	attest(b.rows() == m);
+	attest(constraint_types.size() == m);
 
 	double feasibility_error = 0;
 	*temp_storage = A*x - b;
 
 	for (ptrdiff_t i = 0; i < m; ++i) {
-		feasibility_error = max(feasibility_error, abs((*temp_storage)(i)));
+		if (constraint_types[i] == LinearConstraintType::Equality) {
+			feasibility_error = max(feasibility_error, abs((*temp_storage)(i)));
+		}
+		else if (constraint_types[i] == LinearConstraintType::LessThan) {
+			feasibility_error = max(feasibility_error, (*temp_storage)(i));
+		}
+		else if (constraint_types[i] == LinearConstraintType::GreaterThan) {
+			feasibility_error = max(feasibility_error, -(*temp_storage)(i));
+		}
 	}
 
-	for (ptrdiff_t i = 0; i < n; ++i) {
-		feasibility_error = max(feasibility_error, lb(i) - x(i));
-		feasibility_error = max(feasibility_error, x(i) - ub(i));
+	for (ptrdiff_t j = 0; j < n; ++j) {
+		feasibility_error = max(feasibility_error, lb(j) - x(j));
+		feasibility_error = max(feasibility_error, x(j) - ub(j));
 	}
 
 	double denominator = max(x.maxCoeff(), -x.minCoeff());
@@ -68,6 +78,7 @@ bool check_convergence_and_log(std::ptrdiff_t iteration,
                                const Eigen::VectorXd& ub,
                                const Eigen::SparseMatrix<double>& A,
                                const Eigen::VectorXd& b,
+                               const std::vector<LinearConstraintType>& constraint_types,
                                const FirstOrderOptions& options)
 {
 	using namespace Eigen;
@@ -100,7 +111,7 @@ bool check_convergence_and_log(std::ptrdiff_t iteration,
 
 	double relative_change_x = get_relative_change(x, *x_prev);
 	double relative_change_y = get_relative_change(y, y_prev);
-	double feasibility_error = get_feasibility_error(x, x_prev, lb, ub, A, b);
+	double feasibility_error = get_feasibility_error(x, x_prev, lb, ub, A, b, constraint_types);
 
 	if (relative_change_x < options.tolerance && relative_change_y < options.tolerance) {
 		is_converged = true;
@@ -138,6 +149,7 @@ bool first_order_primal_dual_solve(Eigen::VectorXd* x_ptr,    /// Primal variabl
                                    const Eigen::VectorXd& ub, /// Upper bound on x.
                                    const Eigen::SparseMatrix<double>& A,   /// Equality constraint matrix.
                                    const Eigen::VectorXd& b,  /// Right-hand side of constraints.
+                                   const std::vector<LinearConstraintType>& constraint_types,
                                    const FirstOrderOptions& options)
 {
 	using namespace Eigen;
@@ -151,6 +163,7 @@ bool first_order_primal_dual_solve(Eigen::VectorXd* x_ptr,    /// Primal variabl
 	attest(c.size() == n);
 	attest(A.rows() == m);
 	attest(A.cols() == n);
+	attest(constraint_types.size() == m);
 
 	VectorXd x_prev(n);
 	VectorXd y_prev(m);
@@ -168,7 +181,7 @@ bool first_order_primal_dual_solve(Eigen::VectorXd* x_ptr,    /// Primal variabl
 		options.log_function("----------------------------------------------------------------------");
 		x_prev.setConstant(std::numeric_limits<double>::quiet_NaN());
 		y_prev.setConstant(std::numeric_limits<double>::quiet_NaN());
-		check_convergence_and_log(0, x, &x_prev, y, y_prev, c, lb, ub, A, b, options);
+		check_convergence_and_log(0, x, &x_prev, y, y_prev, c, lb, ub, A, b, constraint_types, options);
 	}
 
 	// Compute preconditioners as in eq. (10) from [2], with alpha = 1.
@@ -208,22 +221,31 @@ bool first_order_primal_dual_solve(Eigen::VectorXd* x_ptr,    /// Primal variabl
 
 		x = x - Tvec.asDiagonal() * ( AT*y + c);
 
-		for (ptrdiff_t i = 0; i < n; ++i) {
-			x(i) = max(lb(i), min(ub(i), x(i)));
+		for (ptrdiff_t j = 0; j < n; ++j) {
+			x(j) = max(lb(j), min(ub(j), x(j)));
 		}
 		
 		y = y + Svec.asDiagonal() * (A*(2 * x - x_prev) - b);
 
+		for (size_t i = 0; i < m; ++i) {
+			if (constraint_types[i] == LinearConstraintType::LessThan) {
+				y(i) = max(y(i), 0.0);
+			}
+			else if (constraint_types[i] == LinearConstraintType::GreaterThan) {
+				y(i) = min(y(i), 0.0);
+			}
+		}
+
 		if (should_check_convergence) {
-			if (check_convergence_and_log(iteration, x, &x_prev, y, y_prev, c, lb, ub, A, b, options)) {
+			if (check_convergence_and_log(iteration, x, &x_prev, y, y_prev, c, lb, ub, A, b, constraint_types, options)) {
 				break;
 			}
 		}
 	}
 
-	check_convergence_and_log(-1, x, &x_prev, y, y_prev, c, lb, ub, A, b, options);
+	check_convergence_and_log(-1, x, &x_prev, y, y_prev, c, lb, ub, A, b, constraint_types, options);
 
-	double feasibility_error = get_feasibility_error(x, &x_prev, lb, ub, A, b);
+	double feasibility_error = get_feasibility_error(x, &x_prev, lb, ub, A, b, constraint_types);
 	return feasibility_error < 100*options.tolerance;
 }
 
@@ -253,6 +275,7 @@ bool EASY_IP_API first_order_admm_solve(Eigen::VectorXd* x_ptr,
 
 	const double rho = options.rho;
 
+	std::vector<LinearConstraintType> constraint_types(m, LinearConstraintType::Equality);
 	
 	vector<Triplet<double>> triplets;
 
@@ -308,7 +331,7 @@ bool EASY_IP_API first_order_admm_solve(Eigen::VectorXd* x_ptr,
 		options.log_function("----------------------------------------------------------------------");
 		x_prev.setConstant(std::numeric_limits<double>::quiet_NaN());
 		z_prev.setConstant(std::numeric_limits<double>::quiet_NaN());
-		check_convergence_and_log(0, x, &x_prev, z, z_prev, c, lb, ub, A, b, options);
+		check_convergence_and_log(0, x, &x_prev, z, z_prev, c, lb, ub, A, b, constraint_types, options);
 	}
 
 	size_t iteration;
@@ -333,14 +356,14 @@ bool EASY_IP_API first_order_admm_solve(Eigen::VectorXd* x_ptr,
 		u = u + x - z;
 
 		if (should_check_convergence) {
-			if (check_convergence_and_log(iteration, x, &x_prev, z, z_prev, c, lb, ub, A, b, options)) {
+			if (check_convergence_and_log(iteration, x, &x_prev, z, z_prev, c, lb, ub, A, b, constraint_types, options)) {
 				// TODO
 				break;
 			}
 		}
 	}
 
-	double feasibility_error = get_feasibility_error(x, &x_prev, lb, ub, A, b);
+	double feasibility_error = get_feasibility_error(x, &x_prev, lb, ub, A, b, constraint_types);
 	return feasibility_error < 100 * options.tolerance;
 }
 
@@ -402,17 +425,6 @@ void FirstOrderProblem::get_system_matrix(Eigen::SparseMatrix<double>* A,
 	auto m = get_rhs_lower().size();
 	check_invariants();
 
-	// First, convert all inequality constraints to
-	// equality constraints.
-	convert_into_equality_constrained_problem();
-	size_t constraints_added = get_cost().size() - n;
-	n = get_cost().size();
-	if (options.log_function && constraints_added > 0) {
-		ostringstream sout;
-		sout << constraints_added << " inequality constraints converted.";
-		options.log_function(sout.str());
-	}
-
 	typedef unsigned int index;
 	vector<Triplet<double, index>> sparse_indices;
 	for (size_t ind = 0; ind < get_rows().size(); ++ind) {
@@ -422,13 +434,6 @@ void FirstOrderProblem::get_system_matrix(Eigen::SparseMatrix<double>* A,
 		attest(i < m);
 		attest(j < n);
 		sparse_indices.emplace_back(index(i), index(j), value);
-	}
-
-	// Check that we only have equality constraints left.
-	for (size_t i = 0; i < m; ++i) {
-		auto lb = get_rhs_lower()[i];
-		auto ub = get_rhs_upper()[i];
-		attest(lb == ub);
 	}
 
 	A->resize(static_cast<int>(m), static_cast<int>(n));
@@ -455,7 +460,24 @@ bool FirstOrderProblem::solve_first_order(const FirstOrderOptions& options)
 	VectorXd x(n); x.setZero();
 	VectorXd y(m); y.setZero();
 
-	bool feasible = first_order_primal_dual_solve(&x, &y, c, lb, ub, A, b, options);
+	std::vector<LinearConstraintType> constraint_types;
+	for (size_t i = 0; i < m; ++i) {
+		auto& lb = get_rhs_lower()[i];
+		auto& ub = get_rhs_upper()[i];
+		if (lb == ub) {
+			constraint_types.push_back(LinearConstraintType::Equality);
+		}
+		else if (ub < 1e100) {
+			attest(lb <= -1e100); // Cannot convert if both lb and ub exists.
+			constraint_types.push_back(LinearConstraintType::LessThan);
+		}
+		else {
+			attest(lb > -1e100);
+			constraint_types.push_back(LinearConstraintType::GreaterThan);
+		}
+	}
+
+	bool feasible = first_order_primal_dual_solve(&x, &y, c, lb, ub, A, b, constraint_types, options);
 
 	get_solution().resize(n);
 	for (size_t j = 0; j < n; ++j) {
@@ -471,11 +493,22 @@ bool FirstOrderProblem::solve_admm(const FirstOrderOptions& options)
 	using namespace Eigen;
 	using namespace std;
 
-	SparseMatrix<double> A;
-	get_system_matrix(&A, options);
-
 	auto n = get_cost().size();
 	auto m = get_rhs_lower().size();
+
+	// First, convert all inequality constraints to
+	// equality constraints.
+	convert_into_equality_constrained_problem();
+	size_t constraints_added = get_cost().size() - n;
+	n = get_cost().size();
+	if (options.log_function && constraints_added > 0) {
+		ostringstream sout;
+		sout << constraints_added << " inequality constraints converted.";
+		options.log_function(sout.str());
+	}
+
+	SparseMatrix<double> A;
+	get_system_matrix(&A, options);
 
 	Map<const VectorXd> lb(get_var_lb().data(), n);
 	Map<const VectorXd> ub(get_var_ub().data(), n);

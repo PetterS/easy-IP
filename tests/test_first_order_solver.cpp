@@ -65,6 +65,8 @@ TEST_CASE("Strange_convergence")
 		-10.804136,
 		-10.233576};
 
+	vector<LinearConstraintType> constraint_types(m, LinearConstraintType::Equality);
+
 	for (size_t i = 0; i < ground_truth.size(); ++i) {
 		CAPTURE(i);
 		CAPTURE(c.dot(x));
@@ -73,7 +75,7 @@ TEST_CASE("Strange_convergence")
 		options.maximum_iterations = i + 1;
 		x.setZero();
 		y.setZero();
-		first_order_primal_dual_solve(&x, &y, c, lb, ub, A, b, options);
+		first_order_primal_dual_solve(&x, &y, c, lb, ub, A, b, constraint_types, options);
 		REQUIRE(abs(c.dot(x) - ground_truth[i]) < 1e-6);
 	}
 
@@ -115,7 +117,7 @@ TEST_CASE("Strange_convergence")
 	options.log_function = [](const string& str) { cerr << str << endl; };
 	x.setZero();
 	y.setZero();
-	first_order_primal_dual_solve(&x, &y, c, lb, ub, A, b, options);
+	first_order_primal_dual_solve(&x, &y, c, lb, ub, A, b, constraint_types, options);
 	
 	cerr << "x     = " << x.transpose() << endl;
 	cerr << "<c|x> = " << c.dot(x) << endl;
@@ -151,11 +153,11 @@ TEST_CASE("FirstOrderProblem/tiny")
 	options.maximum_iterations = 200;
 	options.print_interval = 1;
 	options.log_function = [](const string& str) { cerr << str << endl; };
-	REQUIRE(problem.solve_first_order(options));
+	CHECK(problem.solve_first_order(options));
 	CHECK(x.value() >= 0.999);
 	CHECK(y.value() <= 0.001);
 
-	REQUIRE(problem.solve_admm(options));
+	CHECK(problem.solve_admm(options));
 	CHECK(x.value() >= 0.999);
 	CHECK(y.value() <= 0.001);
 }
@@ -177,11 +179,11 @@ TEST_CASE("FirstOrderProblem/tiny/inequality1")
 	options.maximum_iterations = 200;
 	options.print_interval = 1;
 	options.log_function = [](const string& str) { cerr << str << endl; };
-	REQUIRE(problem.solve_first_order(options));
+	CHECK(problem.solve_first_order(options));
 	CHECK(x.value() >= 0.999);
 	CHECK(y.value() <= 0.001);
 
-	REQUIRE(problem.solve_admm(options));
+	CHECK(problem.solve_admm(options));
 	CHECK(x.value() >= 0.999);
 	CHECK(y.value() <= 0.001);
 }
@@ -203,11 +205,11 @@ TEST_CASE("FirstOrderProblem/tiny/inequality2")
 	options.maximum_iterations = 200;
 	options.print_interval = 10;
 	options.log_function = [](const string& str) { cerr << str << endl; };
-	REQUIRE(problem.solve_first_order(options));
+	CHECK(problem.solve_first_order(options));
 	CHECK(x.value() <= 0.001);
 	CHECK(y.value() <= 0.001);
 
-	REQUIRE(problem.solve_admm(options));
+	CHECK(problem.solve_admm(options));
 	CHECK(x.value() <= 0.001);
 	CHECK(y.value() <= 0.001);
 }
@@ -257,10 +259,10 @@ TEST_CASE("FirstOrderProblem/inequalities")
 	options.print_interval = 10;
 	options.log_function = [](const string& str) { cerr << str << endl; };
 
-	REQUIRE(problem.solve_first_order(options));
+	CHECK(problem.solve_first_order(options));
 	CHECK(abs(obj.value() - optimal_objective) <= 1e-4);
 
-	REQUIRE(problem.solve_admm(options));
+	CHECK(problem.solve_admm(options));
 	CHECK(abs(obj.value() - optimal_objective) <= 1e-4);
 }
 
@@ -281,6 +283,6 @@ TEST_CASE("FirstOrderProblem/infeasible")
 	options.maximum_iterations = 2000;
 	options.print_interval = 100;
 	options.log_function = [](const string& str) { cerr << str << endl; };
-	REQUIRE_FALSE(problem.solve_first_order(options));
-	REQUIRE_FALSE(problem.solve_admm(options));
+	CHECK_FALSE(problem.solve_first_order(options));
+	CHECK_FALSE(problem.solve_admm(options));
 }
