@@ -350,10 +350,10 @@ public:
 
 	/// Creates and returns a pointer to a solver. 
 	///
-	/// If existing_solver is not empty, it returns it after loading the problem. 
+	/// existing_solver can be empty, in which case it will be created. 
 	/// This allows any interface to be created, e.g. OsiGrbSolverInterface,
 	/// which this library might not know about.
-	std::unique_ptr<OsiSolverInterface> get_problem(std::unique_ptr<OsiSolverInterface> existing_solver = nullptr);
+	void get_problem(std::unique_ptr<OsiSolverInterface>& existing_solver);
 
 
 protected:

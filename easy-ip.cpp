@@ -899,15 +899,9 @@ void IP::set_external_solver(Solver solver)
 	}
 }
 
-std::unique_ptr<OsiSolverInterface> IP::get_problem(std::unique_ptr<OsiSolverInterface> existing_solver)
+void IP::get_problem(std::unique_ptr<OsiSolverInterface>& problem)
 {
-	std::unique_ptr<OsiSolverInterface> problem;
-
-	if (existing_solver) {
-		// Take ownership.
-		problem = std::move(existing_solver);
-	}
-	else {
+	if (!problem) {
 		auto clp_problem = new OsiClpSolverInterface;
 		problem.reset(clp_problem);
 		// Turn off information from the LP solver if we are
@@ -957,8 +951,6 @@ std::unique_ptr<OsiSolverInterface> IP::get_problem(std::unique_ptr<OsiSolverInt
 	}
 
 	//problem->writeMps("problem");
-
-	return std::move(problem);
 }
 
 bool IP::Implementation::use_osi() const
@@ -1033,17 +1025,19 @@ bool IP::solve(const CallBack& callback_function)
 	if(impl->external_solver == IP::CPLEX) {
 		#ifdef HAS_CPLEX
 			auto cplex_solver = std::unique_ptr<OsiSolverInterface>(new OsiCpxSolverInterface);
-			impl->problem = get_problem(std::move(cplex_solver));
+			get_problem(cplex_solver);
+			impl->problem = std::move(cplex_solver);
 		#endif
 	}
 	else if(impl->external_solver == IP::MOSEK) {
 		#ifdef HAS_MOSEK
 			auto mosek_solver = std::unique_ptr<OsiSolverInterface>(new OsiMskSolverInterface);
-			impl->problem = get_problem(std::move(mosek_solver));
+			get_problem(mosek_solver);
+			impl->problem = std::move(mosek_solver)
 		#endif
 	}
 	else {
-		impl->problem = get_problem();
+		get_problem(impl->problem);
 	}
 
 	if (impl->external_solver != IP::Default || impl->integer_variables.empty()) {
