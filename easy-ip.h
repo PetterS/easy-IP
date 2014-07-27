@@ -20,6 +20,7 @@
 #define EASY_IP_HEADER
 
 #include <functional>
+#include <initializer_list>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -278,8 +279,15 @@ public:
 	/// have their values queried after the creating IP class has been
 	/// destroyed.
 	Variable add_variable(VariableType type = Boolean, double this_cost = 0.0);
+
 	/// Adds a boolean variable to the optimization problems.
 	BooleanVariable add_boolean(double this_cost = 0.0);
+
+	/// Adds an integer variable which is implemented as multiple boolean
+	/// variables under the hood. The returned Sum can be used just as a
+	/// variable.
+	Sum add_variable_as_booleans(int lower_bound, int upper_bound);
+	Sum add_variable_as_booleans(const std::initializer_list<int>& values);
 
 	/// Creates a vector of variables.
 	vector<Variable> add_vector(int n, VariableType type = Boolean, double this_cost = 0.0);

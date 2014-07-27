@@ -172,3 +172,15 @@ TEST_CASE("move_constructor")
 
 	CHECK( ip2.solve() );
 }
+
+TEST_CASE("add_variable_as_booleans")
+{
+	IP ip;
+	auto x = ip.add_variable_as_booleans(-3, 3);
+	auto y = ip.add_variable_as_booleans({-3, -2, 3, 2, 1});
+	ip.add_objective(x - y);
+	CHECK(ip.solve());
+
+	CHECK(x.value() == -3);
+	CHECK(y.value() == 3);
+}

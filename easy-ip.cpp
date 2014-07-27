@@ -614,6 +614,32 @@ BooleanVariable IP::add_boolean(double this_cost)
 	return BooleanVariable(variable);
 }
 
+Sum IP::add_variable_as_booleans(int lower_bound, int upper_bound)
+{
+	Sum sum = 0;
+	Sum constraint = 0;
+	for (int i = lower_bound; i <= upper_bound; ++i) {
+		auto var = add_boolean();
+		sum += i * var;
+		constraint += var;
+	}
+	add_constraint(constraint == 1);
+	return sum;
+}
+
+Sum IP::add_variable_as_booleans(const std::initializer_list<int>& values)
+{
+	Sum sum = 0;
+	Sum constraint = 0;
+	for (int i: values) {
+		auto var = add_boolean();
+		sum += i * var;
+		constraint += var;
+	}
+	add_constraint(constraint == 1);
+	return sum;
+}
+
 vector<Variable> IP::add_vector(int n, VariableType type, double this_cost)
 {
 	vector<Variable> v;
