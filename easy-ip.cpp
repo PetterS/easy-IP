@@ -543,6 +543,7 @@ public:
 	bool use_osi() const;
 
 	bool solve_minisat();
+	bool next_minisat();
 
 	vector<double> rhs_lower;
 	vector<double> rhs_upper;
@@ -563,6 +564,10 @@ public:
 	bool preprocess;
 	std::unique_ptr<OsiSolverInterface> problem;
 	std::unique_ptr<CbcModel> model;
+	#ifdef HAS_MINISAT
+	std::unique_ptr<Minisat::Solver> minisat_solver;
+	vector<Minisat::Lit> literals;
+	#endif
 	std::vector<std::unique_ptr<CglCutGenerator>> generators;
 
 	void check_creator(const Variable& t) const;
@@ -919,6 +924,10 @@ void IP::set_external_solver(Solver solver)
 {
 	impl->external_solver = solver;
 
+	#ifdef HAS_MINISAT
+		impl->minisat_solver.release();
+		impl->literals.clear();
+	#endif
 
 	if (solver == Minisat) {
 		#ifndef HAS_MINISAT
@@ -1224,8 +1233,8 @@ bool IP::Implementation::solve_minisat()
 	// vector<double> cost;
 
 
-	Minisat::Solver solver;
-	vector<Minisat::Lit> literals;
+	minisat_solver.reset(new Minisat::Solver);
+	literals.clear();
 	for (size_t j = 0; j < cost.size(); ++j) {
 		check(cost.at(j) == 0, "SAT solve can only solve feasibility problems.");
 		auto lb = var_lb.at(j);
@@ -1234,12 +1243,12 @@ bool IP::Implementation::solve_minisat()
 		       "SAT solver requires boolean variables.");
 		attest(lb <= ub);
 
-		literals.push_back(Minisat::mkLit(solver.newVar()));
+		literals.push_back(Minisat::mkLit(minisat_solver->newVar()));
 		if (lb == 1) {
-			solver.addClause(literals.back());
+			minisat_solver->addClause(literals.back());
 		}
 		if (ub == 0) {
-			solver.addClause( ~literals.back());
+			minisat_solver->addClause( ~literals.back());
 		}
 	}
 
@@ -1261,23 +1270,51 @@ bool IP::Implementation::solve_minisat()
 	for (const auto& row: lit_rows) {
 		for (size_t i = 0; i < row.size(); ++i) {
 		for (size_t j = i + 1; j < row.size(); ++j) {
-			solver.addClause(~row[i], ~row[j]);
+			minisat_solver->addClause(~row[i], ~row[j]);
 		}}
-		solver.addClause(row);
+		minisat_solver->addClause(row);
 	}
 
-	bool result = solver.solve();
+	solution.clear();
+	return next_minisat();
+#else
+	check(false, "Minisat is not available.");
+	return false;
+#endif
+}
+
+bool IP::Implementation::next_minisat()
+{
+#ifdef HAS_MINISAT
+	attest(minisat_solver);
+
+	if (!solution.empty()) {
+		// Forbid previous solution.
+		attest(solution.size() == literals.size());
+		Minisat::vec<Minisat::Lit> negated_solution;
+		for (size_t j = 0; j < solution.size(); ++j) {
+			if (solution[j] == 1) {
+				negated_solution.push( ~literals[j]);
+			}
+			else {
+				negated_solution.push(literals[j]);	
+			}
+		}
+		minisat_solver->addClause(negated_solution);
+	}
+
+	bool result = minisat_solver->solve();
 	if (!result) {
+		solution.clear();
 		return false;
 	}
 
 	solution.clear();
 	for (size_t j = 0; j < cost.size(); ++j) {
-		auto value = solver.modelValue(literals.at(j));
+		auto value = minisat_solver->modelValue(literals.at(j));
 		attest(value == Minisat::l_True || value == Minisat::l_False);
 		solution.push_back(value == Minisat::l_True ? 1 : 0);
 	}
-
 	return true;
 #else
 	check(false, "Minisat is not available.");
@@ -1287,8 +1324,11 @@ bool IP::Implementation::solve_minisat()
 
 bool IP::next_solution()
 {
-	check(impl->external_solver != Minisat, "SAT solver does not support enumeration yet.");
 	check( ! impl->integer_variables.empty(), "next_solution(): Need integer variables.");
+
+	if (impl->external_solver == Minisat) {
+		return impl->next_minisat();
+	}
 
 	OsiSolverInterface * refSolver = nullptr;
 	OsiSolverInterface* solver = nullptr;

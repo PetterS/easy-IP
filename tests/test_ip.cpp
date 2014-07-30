@@ -205,7 +205,6 @@ TEST_CASE("minisat")
 		CHECK( ! ip.solve());
 	}
 
-
 	{
 		IP ip;
 		ip.set_external_solver(IP::Minisat);
@@ -255,9 +254,14 @@ TEST_CASE("minisat")
 		ip.set_external_solver(IP::Minisat);
 		auto x = ip.add_boolean();
 		auto y = ip.add_boolean();
-		ip.add_constraint(x + y == 1);
+		auto z = ip.add_boolean();
+		ip.add_constraint(x + y + z == 1);
 		REQUIRE(ip.solve());
-		CHECK_THROWS(ip.next_solution());
+		int num_solutions = 0;
+		do {
+			num_solutions++;
+		} while (ip.next_solution());
+		CHECK(num_solutions == 3);
 	}
 }
 #endif

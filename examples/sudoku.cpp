@@ -140,7 +140,9 @@ void main_program()
 		cerr << "Solving with Minisat..." << endl;		
 		ip.set_external_solver(IP::Minisat);
 		attest(ip.solve());
-		print_solution();
+		do {
+			print_solution();
+		} while (ip.next_solution());
 	}
 
 	ip.set_external_solver(IP::Default);
