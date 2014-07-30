@@ -184,3 +184,80 @@ TEST_CASE("add_variable_as_booleans")
 	CHECK(x.value() == -3);
 	CHECK(y.value() == 3);
 }
+
+#ifdef HAS_MINISAT
+TEST_CASE("minisat")
+{
+	{
+		IP ip;
+		ip.set_external_solver(IP::Minisat);
+		auto x = ip.add_boolean();
+		auto y = ip.add_boolean();
+		ip.add_constraint(x + y == 1);
+		REQUIRE(ip.solve());
+		CHECK((x.value() + y.value() == 1));
+
+		auto z = ip.add_boolean();
+		ip.add_constraint(x + z == 1);
+		ip.add_constraint(y + z == 1);
+		CHECK( ! ip.solve());
+		ip.add_constraint(x + y + z == 1);
+		CHECK( ! ip.solve());
+	}
+
+
+	{
+		IP ip;
+		ip.set_external_solver(IP::Minisat);
+		auto x = ip.add_boolean();
+		ip.add_objective(1.0 * x);
+		CHECK_THROWS(ip.solve());	
+	}
+
+	{
+		IP ip;
+		ip.set_external_solver(IP::Minisat);
+		auto x = ip.add_boolean();
+		auto y = ip.add_boolean();
+		ip.add_constraint(x + y <= 1);
+		CHECK_THROWS(ip.solve());
+	}
+
+	{
+		IP ip;
+		ip.set_external_solver(IP::Minisat);
+		auto x = ip.add_boolean();
+		auto y = ip.add_boolean();
+		ip.add_constraint(x + y == 2);
+		CHECK_THROWS(ip.solve());
+	}
+
+	{
+		IP ip;
+		ip.set_external_solver(IP::Minisat);
+		auto x = ip.add_boolean();
+		auto y = ip.add_boolean();
+		ip.add_constraint(x + 2*y == 1);
+		CHECK_THROWS(ip.solve());
+	}
+
+	{
+		IP ip;
+		ip.set_external_solver(IP::Minisat);
+		auto x = ip.add_boolean();
+		auto y = ip.add_boolean();
+		ip.add_constraint(x - y == 1);
+		CHECK_THROWS(ip.solve());
+	}
+
+	{
+		IP ip;
+		ip.set_external_solver(IP::Minisat);
+		auto x = ip.add_boolean();
+		auto y = ip.add_boolean();
+		ip.add_constraint(x + y == 1);
+		REQUIRE(ip.solve());
+		CHECK_THROWS(ip.next_solution());
+	}
+}
+#endif

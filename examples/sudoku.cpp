@@ -5,7 +5,7 @@
 
 #include <easy-ip.h>
 
-int main()
+void main_program()
 {
 	using namespace std;
 
@@ -112,10 +112,8 @@ int main()
 		}
 	}
 
-	//ip.set_external_solver(IP::MOSEK);
-	ip.solve();
-
-	do {
+	auto print_solution = [&P, n]()
+	{
 		cout << endl;
 		for (int i = 0; i < n*n; ++i) {
 			for (int j = 0; j < n*n; ++j) {
@@ -133,5 +131,33 @@ int main()
 				cout << endl;
 			}
 		}
+	};
+
+	#ifndef HAS_MINISAT
+	#define HAS_MINISAT false
+	#endif
+	if (HAS_MINISAT) {
+		cerr << "Solving with Minisat..." << endl;		
+		ip.set_external_solver(IP::Minisat);
+		attest(ip.solve());
+		print_solution();
+	}
+
+	ip.set_external_solver(IP::Default);
+	//ip.set_external_solver(IP::MOSEK);
+	ip.solve();
+
+	do {
+		print_solution();
 	} while (false /*ip.next_solution()*/);
+}
+
+int main()
+{
+	try {
+		main_program();
+	}
+	catch (std::exception& err) {
+		std::cerr << "EXCEPTION: " << err.what() << std::endl;
+	}
 }

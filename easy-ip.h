@@ -323,7 +323,7 @@ public:
 	/// objective function.
 	void add_objective(const Sum& sum);
 
-	enum Solver {Default, CPLEX, MOSEK};
+	enum Solver {Default, Minisat, CPLEX, MOSEK};
 	/// Switches to an external solver (if available).
 	void set_external_solver(Solver solver);
 

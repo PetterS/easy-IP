@@ -19,6 +19,10 @@
 	#include <coin/OsiMskSolverInterface.hpp>
 #endif
 
+#ifdef HAS_MINISAT
+	#include <minisat/core/Solver.h>
+#endif
+
 #include <coin/CbcModel.hpp>
 #include <coin/CbcEventHandler.hpp>
 #include <coin/CbcCutGenerator.hpp>
@@ -402,7 +406,7 @@ LogicalExpression& LogicalExpression::operator |= (const LogicalExpression& lhs)
 
 LogicalExpression operator || (const LogicalExpression& lhs, const LogicalExpression& rhs)
 {
-	// Copying neccessary.
+	// Copying necessary.
 	LogicalExpression result(lhs);
 	result |= rhs;
 	return result;
@@ -537,6 +541,8 @@ public:
 	bool parse_solution();
 	
 	bool use_osi() const;
+
+	bool solve_minisat();
 
 	vector<double> rhs_lower;
 	vector<double> rhs_upper;
@@ -913,6 +919,12 @@ void IP::set_external_solver(Solver solver)
 {
 	impl->external_solver = solver;
 
+
+	if (solver == Minisat) {
+		#ifndef HAS_MINISAT
+			throw std::runtime_error("IP::set_external_solver: Minisat not installed.");
+		#endif
+	}
 	if (solver == CPLEX) {
 		#ifndef HAS_CPLEX
 			throw std::runtime_error("IP::set_external_solver: CPLEX not installed.");
@@ -1048,6 +1060,9 @@ bool IP::Implementation::parse_solution()
 
 bool IP::solve(const CallBack& callback_function)
 {
+	if (impl->external_solver == IP::Minisat) {
+		return impl->solve_minisat();
+	}
 	if(impl->external_solver == IP::CPLEX) {
 		#ifdef HAS_CPLEX
 			auto cplex_solver = std::unique_ptr<OsiSolverInterface>(new OsiCpxSolverInterface);
@@ -1193,8 +1208,86 @@ bool IP::solve(const CallBack& callback_function)
 	return impl->parse_solution();
 }
 
+bool IP::Implementation::solve_minisat()
+{
+#ifdef HAS_MINISAT
+	using namespace std;
+
+	// vector<double> rhs_lower;
+	// vector<double> rhs_upper;
+	// vector<int> rows;
+	// vector<int> cols;
+	// vector<double> values;
+
+	// vector<double> var_lb;
+	// vector<double> var_ub;
+	// vector<double> cost;
+
+
+	Minisat::Solver solver;
+	vector<Minisat::Lit> literals;
+	for (size_t j = 0; j < cost.size(); ++j) {
+		check(cost.at(j) == 0, "SAT solve can only solve feasibility problems.");
+		auto lb = var_lb.at(j);
+		auto ub = var_ub.at(j);
+		check( (lb == 0 || lb == 1) && (ub == 0 || ub == 1),
+		       "SAT solver requires boolean variables.");
+		attest(lb <= ub);
+
+		literals.push_back(Minisat::mkLit(solver.newVar()));
+		if (lb == 1) {
+			solver.addClause(literals.back());
+		}
+		if (ub == 0) {
+			solver.addClause( ~literals.back());
+		}
+	}
+
+	auto num_constraints = rhs_lower.size();
+	for (size_t i = 0; i < num_constraints; ++i) {
+		check(rhs_lower.at(i) == rhs_upper.at(i), "SAT solver requires equality constraints.");
+		auto rhs = rhs_lower.at(i);
+		check(rhs == 1, "SAT solver requires an RHS of 1.");
+	}
+
+	vector<Minisat::vec<Minisat::Lit>> lit_rows(num_constraints);
+	for (size_t ind = 0; ind < rows.size(); ++ind) {
+		auto var = literals.at(cols.at(ind));
+		auto coeff = values.at(ind);
+		check(coeff == 1, "SAT solver requires constraint coefficients of 1.");
+		lit_rows.at(rows.at(ind)).push(var);
+	}
+
+	for (const auto& row: lit_rows) {
+		for (size_t i = 0; i < row.size(); ++i) {
+		for (size_t j = i + 1; j < row.size(); ++j) {
+			solver.addClause(~row[i], ~row[j]);
+		}}
+		solver.addClause(row);
+	}
+
+	bool result = solver.solve();
+	if (!result) {
+		return false;
+	}
+
+	solution.clear();
+	for (size_t j = 0; j < cost.size(); ++j) {
+		auto value = solver.modelValue(literals.at(j));
+		attest(value == Minisat::l_True || value == Minisat::l_False);
+		solution.push_back(value == Minisat::l_True ? 1 : 0);
+	}
+
+	return true;
+#else
+	check(false, "Minisat is not available.");
+	return false;
+#endif
+}
+
 bool IP::next_solution()
 {
+	check(impl->external_solver != Minisat, "SAT solver does not support enumeration yet.");
 	check( ! impl->integer_variables.empty(), "next_solution(): Need integer variables.");
 
 	OsiSolverInterface * refSolver = nullptr;
