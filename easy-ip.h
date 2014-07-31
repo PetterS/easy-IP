@@ -54,6 +54,8 @@ void EASY_IP_API assertion_failed(const char* expr, const char* file, int line);
 	#define dattest(expr) ((void)0)
 #endif
 
+double EASY_IP_API wall_time();
+
 class IP;
 
 /// Represents a variable in the optimization problem. It is

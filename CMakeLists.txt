@@ -114,6 +114,7 @@ if (${USE_CPLEX})
 	ADD_DEFINITIONS(-DHAS_CPLEX=1)
 endif (${USE_CPLEX})
 
+
 #
 # Include directories
 #
@@ -170,6 +171,15 @@ endif (${USE_CPLEX})
 if (EXISTS ${MINISAT_LIB})
   TARGET_LINK_LIBRARIES(easyip ${MINISAT_LIB})
 endif()
+
+FIND_PACKAGE(OpenMP)
+IF(${OPENMP_FOUND})
+  MESSAGE("-- Found OpenMP.")
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+  ADD_DEFINITIONS(-DHAS_OPENMP=1)
+ELSE()
+  MESSAGE("-- Can't find OpenMP. Continuing without it.")
+ENDIF()
 
 INSTALL(TARGETS easyip
         RUNTIME DESTINATION bin

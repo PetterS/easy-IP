@@ -39,6 +39,10 @@
 #include <coin/CglMixedIntegerRounding2.hpp>
 #include <coin/CglPreProcess.hpp>
 
+#ifdef HAS_OPENMP
+#include <omp.h>
+#endif
+
 #include <easy-ip.h>
 
 void check(bool expr, const char* message)
@@ -63,6 +67,15 @@ void assertion_failed(const char* expr, const char* file_cstr, int line)
 	stringstream sout;
 	sout << "Assertion failed: " << expr << " in " << file << ":" << line << ".";
 	throw runtime_error(sout.str().c_str());
+}
+
+double EASY_IP_API wall_time()
+{
+	#ifdef HAS_OPENMP
+		return ::omp_get_wtime();
+	#else
+		return 0;
+	#endif
 }
 
 double Variable::value() const
