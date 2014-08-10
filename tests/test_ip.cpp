@@ -1,6 +1,5 @@
-// Petter Strandmark 2012.
+// Petter Strandmark 2013–2014.
 
-#define CATCH_CONFIG_MAIN
 #include <catch.hpp>
 
 #include <easy-ip.h>

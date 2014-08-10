@@ -1,11 +1,13 @@
 # Author: petter.strandmark@gmail.com (Petter Strandmark)
 
+ADD_LIBRARY(Catch main_test_program.cpp)
+
 MACRO (CREATE_TEST NAME)
 	ADD_EXECUTABLE(${NAME} 
 	               ${NAME}.cpp
 	               ${SPII_HEADERS})
 
-	TARGET_LINK_LIBRARIES(${NAME} easyip)
+	TARGET_LINK_LIBRARIES(${NAME} easyip Catch)
 	SET_PROPERTY(TARGET ${NAME}         PROPERTY FOLDER "Tests")
 	ADD_TEST(NAME ${NAME}
 	         COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${NAME})
