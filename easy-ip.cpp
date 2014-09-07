@@ -574,6 +574,8 @@ public:
 
 	Solver external_solver;
 
+	double time_limit_in_seconds = -1;
+
 	bool preprocess;
 	std::unique_ptr<OsiSolverInterface> problem;
 	std::unique_ptr<CbcModel> model;
@@ -1065,6 +1067,11 @@ bool IP::Implementation::parse_solution()
 			return false;
 		}
 
+		if (!model->isProvenOptimal()) {
+			//throw std::runtime_error("Time limit reached.");
+			return false;
+		}
+
 		solved_problem = model->solver();
 	}
 
@@ -1079,6 +1086,10 @@ bool IP::Implementation::parse_solution()
 	return true;
 }
 
+void IP::set_time_limit(double seconds)
+{
+	impl->time_limit_in_seconds = seconds;
+}
 
 bool IP::solve(const CallBack& callback_function, bool silent_mode)
 {
@@ -1120,6 +1131,10 @@ bool IP::solve(const CallBack& callback_function, bool silent_mode)
 		impl->model->setLogLevel(1);
 		if (silent_mode) {
 			impl->model->setLogLevel(0);
+		}
+
+		if (impl->time_limit_in_seconds > 0) {
+			impl->model->setDblParam(CbcModel::CbcMaximumSeconds, impl->time_limit_in_seconds);
 		}
 
 		if (callback_function) {

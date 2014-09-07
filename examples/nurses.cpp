@@ -356,6 +356,7 @@ int main_program(int num_args, char* args[])
 	clog << "IP created." << endl;
 
 	// Solve in completely silent mode to keep stdout clean.
+	ip.set_time_limit(5.0);
 	if (!ip.solve(nullptr, true)) {
 		cout << problem_number << "\t"
 		     << "infeasible/timelimit" << "\t"

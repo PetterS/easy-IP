@@ -353,6 +353,9 @@ public:
 	// Resets the optimization problem and starts over.
 	void clear();
 
+	// Sets the time limit for B&B (when using the default solver).
+	// A negative value disables the limit.
+	void set_time_limit(double seconds);
 
 	//
 	// More advanced functionality
