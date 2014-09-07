@@ -29,6 +29,8 @@ public:
 		problem >> num_nurses >> num_days >> num_shifts;
 		attest(problem);
 
+		assignments.resize(num_nurses, std::vector<int>(num_days));
+
 		for (int d = 0; d < num_days; ++d) {
 			day_coverage.emplace_back();
 			for (int s = 0; s < num_shifts; ++s) {
@@ -127,6 +129,24 @@ public:
 	int get_min_assignments_per_shift(int shift) const { return min_assignments_per_shift.at(shift); }
 	int get_max_assignments_per_shift(int shift) const { return max_assignments_per_shift.at(shift); }
 
+	void assign(int nurse, int day, int shift)
+	{
+		assignments.at(nurse).at(day) = shift;
+	}
+
+	void write_to_stream(std::ofstream& solution)
+	{
+		solution << get_num_nurses() << " "
+		         << get_num_days() << " "
+		         << get_num_shifts() << std::endl;
+		for (int n = 0; n < get_num_nurses(); ++n) {
+			for (int d = 0; d < get_num_days(); ++d) {
+				solution << assignments.at(n).at(d) << " ";
+			}
+			solution << std::endl;
+		}
+	}
+
 protected:
 	int num_nurses;
 	int num_days;
@@ -145,6 +165,8 @@ protected:
 	std::vector<int> max_assignments_per_shift;
 	std::vector<int> min_consequtive_shifts;
 	std::vector<int> max_consequtive_shifts;
+
+	std::vector<std::vector<int>> assignments;
 };
 
 
@@ -192,8 +214,12 @@ int main_program(int num_args, char* args[])
 {
 	using namespace std;
 
-	attest(num_args == 3);
+	attest(num_args >= 3);
 	NurseProblem problem(args[1], args[2]);
+	string solution_file_name = "";
+	if (num_args >= 4) {
+		solution_file_name = args[3];
+	}
 
 	string problem_number = args[1];
 	auto p1 = problem_number.find_last_of("/\\");
@@ -370,6 +396,17 @@ int main_program(int num_args, char* args[])
 	double elapsed_time = omp_get_wtime() - start_time;
 
 	clog << endl << endl << "IP solved." << endl;
+
+	for (int n = 0; n < problem.get_num_nurses(); ++n) {
+		for (int d = 0; d < problem.get_num_days(); ++d) {
+			for (int s = 0; s < problem.get_num_shifts() - 1; ++s) {
+				if (x[n][d][s].value() > 0.5) {
+					problem.assign(n, d, s);
+				}
+			}
+		}
+	}
+
 	//for (int n = 0; n < problem.get_num_nurses(); ++n) {
 	//	clog << "Nurse " << n << endl;
 	//	for (int d = 0; d < problem.get_num_days(); ++d) {
@@ -380,6 +417,10 @@ int main_program(int num_args, char* args[])
 	//		}
 	//	}
 	//}
+	if (solution_file_name != "") {
+		ofstream solution(solution_file_name);
+		problem.write_to_stream(solution);
+	}
 
 	clog << endl << "Preferences are " << preferences.value() << endl;
 
