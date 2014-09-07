@@ -114,6 +114,14 @@ if (${USE_CPLEX})
 	ADD_DEFINITIONS(-DHAS_CPLEX=1)
 endif (${USE_CPLEX})
 
+FIND_PACKAGE(OpenMP)
+if(${OPENMP_FOUND})
+	MESSAGE("-- Found OpenMP.")
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+	ADD_DEFINITIONS(-DUSE_OPENMP)
+else()
+	MESSAGE("-- Can't find OpenMP. Continuing without it.")
+endif()
 
 #
 # Include directories
