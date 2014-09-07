@@ -65,16 +65,12 @@ TEST_CASE("different_solvers")
 	CHECK_THROWS(ip1.get_solution(!y));
 }
 
-TEST_CASE("sudoku")
+auto create_soduku_IP(IP& ip, int n = 3)
+	-> decltype(ip.add_boolean_cube(9, 9, 9))
 {
-		using namespace std;
-
-	IP ip;
-	int n = 3;
 	auto P = ip.add_boolean_cube(n*n, n*n, n*n);
 
 	// Exactly one indicator equal to 1.
-	cerr << "Indicator variables\n";
 	for (int i = 0; i < n*n; ++i) {
 		for (int j = 0; j < n*n; ++j) {
 			Sum k_sum;
@@ -90,7 +86,6 @@ TEST_CASE("sudoku")
 	}
 
 	// All rows have every number.
-	cerr << "Row constraints\n";
 	for (int i = 0; i < n*n; ++i) {
 		for (int k = 0; k < n*n; ++k) {
 			Sum row_k_sum;
@@ -102,7 +97,6 @@ TEST_CASE("sudoku")
 	}
 
 	// All columns have every number.
-	cerr << "Columns constraints\n";
 	for (int j = 0; j < n*n; ++j) {
 		for (int k = 0; k < n*n; ++k) {
 			Sum col_k_sum;
@@ -114,7 +108,6 @@ TEST_CASE("sudoku")
 	}
 
 	// The n*n subsquares have every number.
-	cerr << "Square constraints\n";
 	for (int i1 = 0; i1 < n; ++i1) {
 		for (int j1 = 0; j1 < n; ++j1) {
 			for (int k = 0; k < n*n; ++k) {
@@ -128,6 +121,16 @@ TEST_CASE("sudoku")
 			}
 		}
 	}
+	return P;
+}
+
+TEST_CASE("sudoku")
+{
+	using namespace std;
+
+	IP ip;
+	int n = 3;
+	auto P = create_soduku_IP(ip);
 
 	REQUIRE(ip.solve());
 
@@ -261,6 +264,41 @@ TEST_CASE("minisat")
 			num_solutions++;
 		} while (ip.next_solution());
 		CHECK(num_solutions == 3);
+	}
+
+	{
+		IP ip;
+		int n = 3;
+		auto P = create_soduku_IP(ip, n);
+
+		ip.set_external_solver(IP::Minisat);
+		REQUIRE(ip.solve());
+
+		vector<vector<int>> solution(n*n);
+
+		cout << endl;
+		for (int i = 0; i < n*n; ++i) {
+			for (int j = 0; j < n*n; ++j) {
+				solution[i].emplace_back();
+
+				for (int k = 0; k < n*n; ++k) {
+					if (P[i][j][k].value()) {
+						solution[i][j] = k + 1;
+					}
+				}
+			}
+		}
+
+		for (int i = 0; i < n*n; ++i) {
+			int row_sum = 0;
+			int col_sum = 0;
+			for (int j = 0; j < n*n; ++j) {
+				row_sum += solution[i][j];
+				col_sum += solution[j][i];
+			}
+			CHECK(row_sum == 45);
+			CHECK(col_sum == 45);
+		}
 	}
 }
 #endif
