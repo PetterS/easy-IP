@@ -1080,7 +1080,7 @@ bool IP::Implementation::parse_solution()
 }
 
 
-bool IP::solve(const CallBack& callback_function)
+bool IP::solve(const CallBack& callback_function, bool silent_mode)
 {
 	if (impl->external_solver == IP::Minisat) {
 		return impl->solve_minisat();
@@ -1118,6 +1118,9 @@ bool IP::solve(const CallBack& callback_function)
 
 		// Only the most important log messages.
 		impl->model->setLogLevel(1);
+		if (silent_mode) {
+			impl->model->setLogLevel(0);
+		}
 
 		if (callback_function) {
 			MyEventHandler my_event_handler(callback_function,

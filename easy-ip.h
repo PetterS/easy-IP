@@ -334,7 +334,7 @@ public:
 	/// is infeasible or unbounded.
 	///
 	/// If a callback is used, preprocessing will be turned off.
-	bool solve(const CallBack& callback_function = nullptr);
+	bool solve(const CallBack& callback_function = nullptr, bool silent_mode = false);
 
 	bool next_solution();
 
