@@ -10,7 +10,11 @@
 #include <string>
 #include <vector>
 
-#include <omp.h>
+#ifdef USE_OPENMP
+	#include <omp.h>
+#else
+	namespace { double omp_get_wtime() { return 0; } }
+#endif
 
 #include <easy-ip.h>
 
@@ -354,8 +358,9 @@ int main_program(int num_args, char* args[])
 	// Solve in completely silent mode to keep stdout clean.
 	if (!ip.solve(nullptr, true)) {
 		cout << problem_number << "\t"
-		     << "infeasible" << "\t"
+		     << "infeasible/timelimit" << "\t"
 		     << 0 << endl;
+		return 2;
 	}
 
 	double elapsed_time = omp_get_wtime() - start_time;
