@@ -52,6 +52,7 @@ public:
 			}
 		}
 
+		// Check that there isn’t more information.
 		int dummy = 0;
 		problem >> dummy;
 		attest(!problem);
@@ -85,6 +86,7 @@ public:
 			attest(cases);
 		}
 
+		// Check that there isn’t more information.
 		cases >> dummy;
 		attest(!cases);
 	}
@@ -155,7 +157,7 @@ int add_min_consequtive_constraints(IP* ip, int N, const std::vector<Sum>& varia
 		// Look for windows of size minimum - 1 along with the
 		// surrounding slots.
 		//  
-		// [*] [x1] [y1] [x2] [*]
+		// […] [x1] [y1] [x2] […]
 		//
 		// x1 = 0 ∧ x2 = 0 ⇒ y1 = 0
 		// ⇔
@@ -211,10 +213,11 @@ int main_program(int num_args, char* args[])
 
 	IP ip;
 
-	// x[n][d][s] = 1 ⇔ Nurse n is working day d, shift s.
+	// The assignment variables.
+	//   x[n][d][s] = 1 ⇔ Nurse n is working day d, shift s.
 	auto x = ip.add_boolean_cube(problem.get_num_nurses(), problem.get_num_days(), problem.get_num_shifts());
 
-	// Returns a variable (sum) that is 1 iff the nurse is working
+	// Returns a variable (Sum) that is 1 iff the nurse is working
 	// on a particular day.
 	auto working_on_day = [&x, &problem](int nurse, int day)
 	{
