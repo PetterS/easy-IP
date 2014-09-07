@@ -29,7 +29,7 @@ public:
 		problem >> num_nurses >> num_days >> num_shifts;
 		attest(problem);
 
-		assignments.resize(num_nurses, std::vector<int>(num_days));
+		assignments.resize(num_nurses, std::vector<int>(num_days, 0));
 
 		for (int d = 0; d < num_days; ++d) {
 			day_coverage.emplace_back();
@@ -134,7 +134,18 @@ public:
 		assignments.at(nurse).at(day) = shift;
 	}
 
-	void write_to_stream(std::ofstream& solution)
+	int objective() const
+	{
+		int obj = 0;
+		for (int n = 0; n < get_num_nurses(); ++n) {
+			for (int d = 0; d < get_num_days(); ++d) {
+				obj += get_preference(n, d, assignments.at(n).at(d));
+			}
+		}
+		return obj;
+	}
+
+	void write_to_stream(std::ofstream& solution) const
 	{
 		solution << get_num_nurses() << " "
 		         << get_num_days() << " "
@@ -399,7 +410,7 @@ int main_program(int num_args, char* args[])
 
 	for (int n = 0; n < problem.get_num_nurses(); ++n) {
 		for (int d = 0; d < problem.get_num_days(); ++d) {
-			for (int s = 0; s < problem.get_num_shifts() - 1; ++s) {
+			for (int s = 0; s < problem.get_num_shifts(); ++s) {
 				if (x[n][d][s].value() > 0.5) {
 					problem.assign(n, d, s);
 				}
@@ -422,10 +433,11 @@ int main_program(int num_args, char* args[])
 		problem.write_to_stream(solution);
 	}
 
-	clog << endl << "Preferences are " << preferences.value() << endl;
+	attest(preferences.value() == problem.objective());
+	clog << endl << "Preferences are " << problem.objective() << endl;
 
 	cout << problem_number << "\t"
-	     << preferences.value() << "\t"
+	     << problem.objective() << "\t"
 	     << elapsed_time << endl;
 
 	return 0;
