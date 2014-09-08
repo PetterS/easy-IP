@@ -1255,6 +1255,30 @@ void IP::allow_ignoring_cost_function()
 	impl->allow_ignoring_cost_function = true;
 }
 
+#ifdef HAS_MINISAT
+void add_at_most_k_constraint(Minisat::Solver* solver,
+                              const vector<Minisat::Lit>& literals,
+                              int k)
+{
+	vector<int> index_set;
+	for (size_t ix = 0; ix < literals.size(); ++ix) {
+		index_set.emplace_back(ix);
+	}
+
+	vector<vector<int>> subsets;
+	generate_subsets(index_set, k + 1, &subsets);
+
+	Minisat::vec<Minisat::Lit> clause(k + 1);
+	for (auto& subset: subsets) {
+		int clause_index = 0;
+		for (int ix: subset) {
+			clause[clause_index++] = ~ literals[ix];
+		}
+		solver->addClause(clause);
+	}
+}
+#endif
+
 bool IP::Implementation::solve_minisat()
 {
 #ifdef HAS_MINISAT
@@ -1290,19 +1314,19 @@ bool IP::Implementation::solve_minisat()
 		upper[i] = int(std::min(rhs_upper.at(i), double(literals.size())) + 0.5);
 	}
 
-	vector<Minisat::vec<Minisat::Lit>> lit_rows(num_constraints);
+	vector<vector<Minisat::Lit>> lit_rows(num_constraints);
 	for (size_t ind = 0; ind < rows.size(); ++ind) {
 		auto var = literals.at(cols.at(ind));
 		auto coeff = values.at(ind);
 		check(coeff == 1 || coeff == -1, "SAT solver requires constraint coefficients of +-1.");
 
 		if (coeff == 1) {
-			lit_rows.at(rows.at(ind)).push(var);
+			lit_rows.at(rows.at(ind)).emplace_back(var);
 		}
 		else {
 			lower[rows.at(ind)] += 1;
 			upper[rows.at(ind)] += 1;
-			lit_rows.at(rows.at(ind)).push( ~ var);
+			lit_rows.at(rows.at(ind)).emplace_back( ~ var);
 		}
 	}
 
@@ -1318,29 +1342,15 @@ bool IP::Implementation::solve_minisat()
 		}
 
 		if (lower[i] > 0) {
-			generate_subsets(index_set, num_literals - lower[i] + 1, &subsets);
-
-			Minisat::vec<Minisat::Lit> clause(num_literals - lower[i] + 1);
-			for (auto& subset: subsets) {
-				int clause_index = 0;
-				for (int ix: subset) {
-					clause[clause_index++] = lit_rows[i][ix];
-				}
-				minisat_solver->addClause(clause);
+			auto neg_lit_row = lit_rows[i];
+			for (auto& lit: neg_lit_row) {
+				lit = ~ lit;
 			}
+			add_at_most_k_constraint(minisat_solver.get(), neg_lit_row, neg_lit_row.size() - lower[i]);
 		}
 
 		if (upper[i] < num_literals) {
-			generate_subsets(index_set, upper[i] + 1, &subsets);
-
-			Minisat::vec<Minisat::Lit> clause(upper[i] + 1);
-			for (auto& subset: subsets) {
-				int clause_index = 0;
-				for (int ix: subset) {
-					clause[clause_index++] = ~ lit_rows[i][ix];
-				}
-				minisat_solver->addClause(clause);
-			}
+			add_at_most_k_constraint(minisat_solver.get(), lit_rows[i], upper[i]);
 		}
 	}
 
