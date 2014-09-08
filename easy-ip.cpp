@@ -548,7 +548,7 @@ class IP::Implementation
 {
 public:
 	Implementation(const IP* creator_)
-		: creator(creator_), external_solver(IP::Default)
+		: external_solver(IP::Default), creator(creator_)
 	{ }
 
 	bool parse_solution();
