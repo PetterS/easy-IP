@@ -1521,9 +1521,25 @@ void internal_subset(const std::vector<int>& set, int left, int index, std::vect
 	}
 }
 
+size_t choose(size_t n, size_t k)
+{
+	if (k == 0) {
+		return 1;
+	}
+	return  (n * choose(n - 1, k - 1)) / k;
+}
+
 void generate_subsets(const std::vector<int>& set, int subset_size, std::vector<std::vector<int>>* output)
 {
+	size_t num_subsets = choose(set.size(), subset_size);
+	if (num_subsets > 50000000) {
+		// Maybe change this limit in the future.
+		throw std::runtime_error("Too many subsets. Choose a better algorithm.");
+	}
+
 	output->clear();
+	output->reserve(num_subsets);
 	std::vector<int> scratch_space;
+	scratch_space.reserve(subset_size);
 	internal_subset(set, subset_size, 0, &scratch_space, output);
 }
