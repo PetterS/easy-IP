@@ -362,4 +362,19 @@ TEST_CASE("minisat")
 		}
 	}
 }
+
+TEST_CASE("minisat-large")
+{
+	IP ip;
+	ip.set_external_solver(IP::Minisat);
+	ip.allow_ignoring_cost_function();
+	Sum sum = 0;
+	for (int i = 0; i < 100; ++i) {
+		auto x = ip.add_boolean(1);
+		sum += x;
+	}
+	ip.add_constraint(sum == 50);
+	CHECK(ip.solve());
+	CHECK(sum.value() == 50);
+}
 #endif

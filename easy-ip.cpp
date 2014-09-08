@@ -1256,9 +1256,9 @@ void IP::allow_ignoring_cost_function()
 }
 
 #ifdef HAS_MINISAT
-void add_at_most_k_constraint(Minisat::Solver* solver,
-                              const vector<Minisat::Lit>& literals,
-                              int k)
+void add_at_most_k_constraint_binomial(Minisat::Solver* solver,
+                                       const vector<Minisat::Lit>& literals,
+                                       int k)
 {
 	vector<int> index_set;
 	for (size_t ix = 0; ix < literals.size(); ++ix) {
@@ -1276,6 +1276,63 @@ void add_at_most_k_constraint(Minisat::Solver* solver,
 		}
 		solver->addClause(clause);
 	}
+}
+
+void add_at_most_k_constraint(Minisat::Solver* solver,
+                              const vector<Minisat::Lit>& X,
+                              int k)
+{
+	attest(k >= 0);
+	auto n = X.size();
+
+	// Perhaps the binomial is better when e.g. n <= 7?
+	if (n <= 1 || k == 0) {
+		add_at_most_k_constraint_binomial(solver, X, k);
+		return;
+	}
+
+	// This implementation follows
+	// Carsten Sinz,
+	// “Towards an Optimal CNF Encoding of Boolean Cardinality Constraints,”
+	// Principles and Practice of Constraint Programming, 2005.
+	// §2, page 2.
+
+	vector<vector<Minisat::Lit>> s;
+	for (size_t i = 0; i < n; ++i) {
+		s.emplace_back();
+		for (size_t j = 0; j < k; ++j) {
+			s.back().emplace_back(Minisat::mkLit(solver->newVar()));
+		}
+	}
+
+	// (¬x1 ∨ s1,1)
+	solver->addClause(~X[0], s[0][0]);
+
+	// for 1 < j ≤ k
+	for (size_t j = 1; j < k; ++j) {
+		// (¬s1, j) 
+		solver->addClause(~s[0][j]);
+	}
+
+	// for 1 < i < n
+	for (size_t i = 1; i < n - 1; ++i) {
+		// (¬xi ∨ si,1)
+		solver->addClause(~X[i], s[i][0]);
+		// (¬si−1,1 ∨ si,1)
+		solver->addClause(~s[i-1][0], s[i][0]);
+
+		// for 1 < j ≤ k
+		for (size_t j = 1; j < k; ++j) {
+			// (¬xi ∨ ¬si−1,j−1 ∨ si,j)
+			solver->addClause(~X[i], ~s[i-1][j-1], s[i][j]);
+			// (¬si−1,j ∨ si,j)
+			solver->addClause(~s[i-1][j], s[i][j]);
+		}
+		// (¬xi ∨ ¬si−1,k)
+		solver->addClause(~X[i], ~s[i-1][k-1]);
+	}
+	// (¬xn ∨ ¬sn−1,k)
+	solver->addClause(~X[n-1], ~s[n-2][k-1]);
 }
 #endif
 
