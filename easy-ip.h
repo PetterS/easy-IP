@@ -362,6 +362,12 @@ public:
 	// A negative value disables the limit.
 	void set_time_limit(double seconds);
 
+	// The SAT solver can not use a cost function and will issue an
+	// error if it is not 0. Calling this function allows the
+	// solver to ignore the cost function if required and only
+	// solve a feasibility problem.
+	void allow_ignoring_cost_function();
+
 	//
 	// More advanced functionality
 	//

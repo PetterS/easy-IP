@@ -220,6 +220,17 @@ TEST_CASE("minisat")
 		ip.set_external_solver(IP::Minisat);
 		auto x = ip.add_boolean();
 		auto y = ip.add_boolean();
+		ip.add_objective(2*x + y);
+		ip.add_constraint(x + y <= 1);
+		ip.allow_ignoring_cost_function();
+		CHECK(ip.solve());	
+	}
+
+	{
+		IP ip;
+		ip.set_external_solver(IP::Minisat);
+		auto x = ip.add_boolean();
+		auto y = ip.add_boolean();
 		ip.add_constraint(x + y <= 1);
 		CHECK(ip.solve());
 		int num_solutions = 0;

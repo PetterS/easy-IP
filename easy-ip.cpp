@@ -585,6 +585,8 @@ public:
 	#endif
 	std::vector<std::unique_ptr<CglCutGenerator>> generators;
 
+	bool allow_ignoring_cost_function = false;
+
 	void check_creator(const Variable& t) const;
 	void check_creator(const Sum& t) const;
 
@@ -1248,6 +1250,11 @@ bool IP::solve(const CallBack& callback_function, bool silent_mode)
 	return impl->parse_solution();
 }
 
+void IP::allow_ignoring_cost_function()
+{
+	impl->allow_ignoring_cost_function = true;
+}
+
 bool IP::Implementation::solve_minisat()
 {
 #ifdef HAS_MINISAT
@@ -1256,7 +1263,10 @@ bool IP::Implementation::solve_minisat()
 	minisat_solver.reset(new Minisat::Solver);
 	literals.clear();
 	for (size_t j = 0; j < cost.size(); ++j) {
-		check(cost.at(j) == 0, "SAT solve can only solve feasibility problems.");
+		if (!allow_ignoring_cost_function) {
+			check(cost.at(j) == 0, "SAT solve can only solve feasibility problems.");
+		}
+		
 		auto lb = var_lb.at(j);
 		auto ub = var_ub.at(j);
 		check( (lb == 0 || lb == 1) && (ub == 0 || ub == 1),
