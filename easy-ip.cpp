@@ -1283,12 +1283,27 @@ bool IP::Implementation::solve_minisat()
 	}
 
 	auto num_constraints = rhs_lower.size();
+	std::vector<int> lower(num_constraints);
+	std::vector<int> upper(num_constraints);
+	for (size_t i = 0; i < num_constraints; ++i) {
+		lower[i] = int(std::max(rhs_lower.at(i), 0.0) + 0.5);
+		upper[i] = int(std::min(rhs_upper.at(i), double(literals.size())) + 0.5);
+	}
+
 	vector<Minisat::vec<Minisat::Lit>> lit_rows(num_constraints);
 	for (size_t ind = 0; ind < rows.size(); ++ind) {
 		auto var = literals.at(cols.at(ind));
 		auto coeff = values.at(ind);
-		check(coeff == 1, "SAT solver requires constraint coefficients of 1.");
-		lit_rows.at(rows.at(ind)).push(var);
+		check(coeff == 1 || coeff == -1, "SAT solver requires constraint coefficients of +-1.");
+
+		if (coeff == 1) {
+			lit_rows.at(rows.at(ind)).push(var);
+		}
+		else {
+			lower[rows.at(ind)] += 1;
+			upper[rows.at(ind)] += 1;
+			lit_rows.at(rows.at(ind)).push( ~ var);
+		}
 	}
 
 	vector<int> index_set;
@@ -1302,11 +1317,10 @@ bool IP::Implementation::solve_minisat()
 			index_set.emplace_back(ix);
 		}
 
-		int lower = int(std::max(rhs_lower.at(i), 0.0) + 0.5);
-		if (lower > 0) {
-			generate_subsets(index_set, num_literals - lower + 1, &subsets);
+		if (lower[i] > 0) {
+			generate_subsets(index_set, num_literals - lower[i] + 1, &subsets);
 
-			Minisat::vec<Minisat::Lit> clause(num_literals - lower + 1);
+			Minisat::vec<Minisat::Lit> clause(num_literals - lower[i] + 1);
 			for (auto& subset: subsets) {
 				int clause_index = 0;
 				for (int ix: subset) {
@@ -1316,11 +1330,10 @@ bool IP::Implementation::solve_minisat()
 			}
 		}
 
-		int upper = int(std::min(rhs_upper.at(i), double(num_literals)) + 0.5);
-		if (upper < num_literals) {
-			generate_subsets(index_set, upper + 1, &subsets);
+		if (upper[i] < num_literals) {
+			generate_subsets(index_set, upper[i] + 1, &subsets);
 
-			Minisat::vec<Minisat::Lit> clause(upper + 1);
+			Minisat::vec<Minisat::Lit> clause(upper[i] + 1);
 			for (auto& subset: subsets) {
 				int clause_index = 0;
 				for (int ix: subset) {
@@ -1376,17 +1389,17 @@ bool IP::Implementation::next_minisat()
 
 	// Check feasibility just to make sure everything is alright.
 	auto num_constraints = rhs_lower.size();
-	vector<int> row_sums(num_constraints, 0);
+	vector<double> row_sums(num_constraints, 0);
 	for (size_t ind = 0; ind < rows.size(); ++ind) {
-		auto var = int(solution.at(cols.at(ind)) + 0.5);
-		//auto coeff = values.at(ind);
-		row_sums.at(rows.at(ind)) += var;
+		auto var   = solution.at(cols.at(ind));
+		auto coeff = values.at(ind);
+		row_sums.at(rows.at(ind)) += coeff * var;
 	}
 	for (size_t i = 0; i < num_constraints; ++i) {
 		int lower = int(std::max(rhs_lower.at(i), 0.0) + 0.5);
 		int upper = int(std::min(rhs_upper.at(i), double(solution.size())) + 0.5);
-		attest(lower <= row_sums.at(i));
-		attest(row_sums.at(i) <= upper);
+		attest(lower - 1e-9   <= row_sums.at(i));
+		attest(row_sums.at(i) <= upper + 1e-9);
 	}
 
 	return true;
