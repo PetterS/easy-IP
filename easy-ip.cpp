@@ -1306,10 +1306,11 @@ bool IP::Implementation::solve_minisat()
 		if (lower > 0) {
 			generate_subsets(index_set, num_literals - lower + 1, &subsets);
 
+			Minisat::vec<Minisat::Lit> clause(num_literals - lower + 1);
 			for (auto& subset: subsets) {
-				Minisat::vec<Minisat::Lit> clause;
+				int clause_index = 0;
 				for (int ix: subset) {
-					clause.push(lit_rows[i][ix]);
+					clause[clause_index++] = lit_rows[i][ix];
 				}
 				minisat_solver->addClause(clause);
 			}
@@ -1319,10 +1320,11 @@ bool IP::Implementation::solve_minisat()
 		if (upper < num_literals) {
 			generate_subsets(index_set, upper + 1, &subsets);
 
+			Minisat::vec<Minisat::Lit> clause(upper + 1);
 			for (auto& subset: subsets) {
-				Minisat::vec<Minisat::Lit> clause;
+				int clause_index = 0;
 				for (int ix: subset) {
-					clause.push( ~ lit_rows[i][ix]);
+					clause[clause_index++] = ~ lit_rows[i][ix];
 				}
 				minisat_solver->addClause(clause);
 			}
