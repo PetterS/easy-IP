@@ -1510,6 +1510,10 @@ void internal_subset(const std::vector<int>& set, int left, int index, std::vect
 		all_subsets->push_back(*scratch_space);
 		return;
 	}
+	if (left > set.size() - index) {
+		// We don’t have enough elements left to create a subset.
+		return;
+	}
 	for (std::size_t i = index; i < set.size(); i++){
 		scratch_space->push_back(set[i]);
 		internal_subset(set, left - 1, i + 1, scratch_space, all_subsets);
