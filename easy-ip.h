@@ -264,6 +264,11 @@ private:
 EASY_IP_API ConstraintList operator && (Constraint&&, Constraint&&);
 EASY_IP_API ConstraintList operator && (ConstraintList&&, Constraint&&);
 
+// Generates all subsets of a given size.
+// Expose this externally for easier testing.
+EASY_IP_API void generate_subsets(const std::vector<int>& set, int subset_size, std::vector<std::vector<int>>* output);
+
+
 /// Represents an integer (linear) program.
 ///
 ///

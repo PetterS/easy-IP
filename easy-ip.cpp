@@ -1253,17 +1253,6 @@ bool IP::Implementation::solve_minisat()
 #ifdef HAS_MINISAT
 	using namespace std;
 
-	// vector<double> rhs_lower;
-	// vector<double> rhs_upper;
-	// vector<int> rows;
-	// vector<int> cols;
-	// vector<double> values;
-
-	// vector<double> var_lb;
-	// vector<double> var_ub;
-	// vector<double> cost;
-
-
 	minisat_solver.reset(new Minisat::Solver);
 	literals.clear();
 	for (size_t j = 0; j < cost.size(); ++j) {
@@ -1463,3 +1452,21 @@ const vector<double>& IP::get_cost() const { return impl->cost; }
 const vector<std::size_t>& IP::get_integer_variables() const { return impl->integer_variables; }
 
 vector<double>& IP::get_solution() { return impl->solution; }
+
+void internal_subset(const std::vector<int>& set, int left, int index, std::vector<int>* scratch_space, std::vector<std::vector<int>>* all_subsets){
+	if (left == 0){
+		all_subsets->push_back(*scratch_space);
+		return;
+	}
+	for (std::size_t i = index; i < set.size(); i++){
+		scratch_space->push_back(set[i]);
+		internal_subset(set, left - 1, i + 1, scratch_space, all_subsets);
+		scratch_space->pop_back();
+	}
+}
+
+void generate_subsets(const std::vector<int>& set, int subset_size, std::vector<std::vector<int>>* output)
+{
+	std::vector<int> scratch_space;
+	internal_subset(set, subset_size, 0, &scratch_space, output);
+}
