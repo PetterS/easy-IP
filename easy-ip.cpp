@@ -1273,12 +1273,6 @@ bool IP::Implementation::solve_minisat()
 	}
 
 	auto num_constraints = rhs_lower.size();
-	for (size_t i = 0; i < num_constraints; ++i) {
-		check(rhs_lower.at(i) == rhs_upper.at(i), "SAT solver requires equality constraints.");
-		auto rhs = rhs_lower.at(i);
-		check(rhs == 1, "SAT solver requires an RHS of 1.");
-	}
-
 	vector<Minisat::vec<Minisat::Lit>> lit_rows(num_constraints);
 	for (size_t ind = 0; ind < rows.size(); ++ind) {
 		auto var = literals.at(cols.at(ind));
@@ -1287,12 +1281,42 @@ bool IP::Implementation::solve_minisat()
 		lit_rows.at(rows.at(ind)).push(var);
 	}
 
-	for (const auto& row: lit_rows) {
-		for (size_t i = 0; i < row.size(); ++i) {
-		for (size_t j = i + 1; j < row.size(); ++j) {
-			minisat_solver->addClause(~row[i], ~row[j]);
-		}}
-		minisat_solver->addClause(row);
+	vector<int> index_set;
+	vector<vector<int>> subsets;
+	for (size_t i = 0; i < num_constraints; ++i) {
+
+		auto num_literals = lit_rows.at(i).size();
+
+		index_set.clear();
+		for (size_t ix = 0; ix < num_literals; ++ix) {
+			index_set.emplace_back(ix);
+		}
+
+		int lower = int(rhs_lower.at(i) + 0.5);
+		if (lower > 0) {
+			generate_subsets(index_set, num_literals - lower + 1, &subsets);
+
+			for (auto& subset: subsets) {
+				Minisat::vec<Minisat::Lit> clause;
+				for (int ix: subset) {
+					clause.push(lit_rows[i][ix]);
+				}
+				minisat_solver->addClause(clause);
+			}
+		}
+
+		int upper = int(rhs_upper.at(i) + 0.5);
+		if (upper < num_literals) {
+			generate_subsets(index_set, upper + 1, &subsets);
+
+			for (auto& subset: subsets) {
+				Minisat::vec<Minisat::Lit> clause;
+				for (int ix: subset) {
+					clause.push( ~ lit_rows[i][ix]);
+				}
+				minisat_solver->addClause(clause);
+			}
+		}
 	}
 
 	solution.clear();
@@ -1467,6 +1491,7 @@ void internal_subset(const std::vector<int>& set, int left, int index, std::vect
 
 void generate_subsets(const std::vector<int>& set, int subset_size, std::vector<std::vector<int>>* output)
 {
+	output->clear();
 	std::vector<int> scratch_space;
 	internal_subset(set, subset_size, 0, &scratch_space, output);
 }

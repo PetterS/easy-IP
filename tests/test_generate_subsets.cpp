@@ -34,6 +34,7 @@ TEST_CASE("subsets_size_1")
 {
 	auto s = {1, 2, 5, 8};
 	vector<vector<int>> subsets;
+	subsets.emplace_back(vector<int>({1, 2, 5}));  // To test that it is cleared.
 	generate_subsets(s, 1, &subsets);
 	print(subsets);
 	CHECK(subsets.size() == 4);
