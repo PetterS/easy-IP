@@ -1302,7 +1302,7 @@ bool IP::Implementation::solve_minisat()
 			index_set.emplace_back(ix);
 		}
 
-		int lower = int(rhs_lower.at(i) + 0.5);
+		int lower = int(std::max(rhs_lower.at(i), 0.0) + 0.5);
 		if (lower > 0) {
 			generate_subsets(index_set, num_literals - lower + 1, &subsets);
 
@@ -1315,7 +1315,7 @@ bool IP::Implementation::solve_minisat()
 			}
 		}
 
-		int upper = int(rhs_upper.at(i) + 0.5);
+		int upper = int(std::min(rhs_upper.at(i), double(num_literals)) + 0.5);
 		if (upper < num_literals) {
 			generate_subsets(index_set, upper + 1, &subsets);
 
@@ -1363,12 +1363,30 @@ bool IP::Implementation::next_minisat()
 		return false;
 	}
 
+	//minisat_solver->printStats();
+
 	solution.clear();
 	for (size_t j = 0; j < cost.size(); ++j) {
 		auto value = minisat_solver->modelValue(literals.at(j));
 		attest(value == Minisat::l_True || value == Minisat::l_False);
 		solution.push_back(value == Minisat::l_True ? 1 : 0);
 	}
+
+	// Check feasibility just to make sure everything is alright.
+	auto num_constraints = rhs_lower.size();
+	vector<int> row_sums(num_constraints, 0);
+	for (size_t ind = 0; ind < rows.size(); ++ind) {
+		auto var = int(solution.at(cols.at(ind)) + 0.5);
+		//auto coeff = values.at(ind);
+		row_sums.at(rows.at(ind)) += var;
+	}
+	for (size_t i = 0; i < num_constraints; ++i) {
+		int lower = int(std::max(rhs_lower.at(i), 0.0) + 0.5);
+		int upper = int(std::min(rhs_upper.at(i), double(solution.size())) + 0.5);
+		attest(lower <= row_sums.at(i));
+		attest(row_sums.at(i) <= upper);
+	}
+
 	return true;
 #else
 	check(false, "Minisat is not available.");
