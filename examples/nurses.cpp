@@ -393,53 +393,81 @@ int main_program(int num_args, char* args[])
 		}
 	}
 	ip.add_objective(preferences);
+
+	double startup_time = omp_get_wtime() - start_time;
+
 	clog << "IP created." << endl;
+
+	auto assign_solution = [&x, &problem]()
+	{
+		for (int n = 0; n < problem.get_num_nurses(); ++n) {
+			for (int d = 0; d < problem.get_num_days(); ++d) {
+				for (int s = 0; s < problem.get_num_shifts(); ++s) {
+					if (x[n][d][s].value()) {
+						problem.assign(n, d, s);
+					}
+				}
+			}
+		}
+	};
+
+	start_time = omp_get_wtime();
+
+	// Try SAT solver first.
+	bool try_SAT_solver =
+		#ifdef HAS_MINISAT
+			true;
+		#else
+			false;
+		#endif
+	if (try_SAT_solver) {
+		start_time = omp_get_wtime();
+		ip.set_external_solver(IP::Minisat);
+		ip.allow_ignoring_cost_function();
+		ip.solve();
+		int num_solutions = 0;
+		do {
+			double current_time = omp_get_wtime() - start_time;
+			num_solutions++;
+			assign_solution();
+			clog << "SAT solver found solution of " << problem.objective() << " in " << current_time << " seconds." << endl;
+			if (num_solutions >= 1) {  // Increase for more solutions.
+				break;
+			}
+		} while (ip.next_solution());
+		ip.set_external_solver(IP::Default);
+	}
 
 	// Solve in completely silent mode to keep stdout clean.
 	ip.set_time_limit(5.0);
-	if (!ip.solve(nullptr, true)) {
+
+	if (ip.solve(nullptr, true)) {
+		clog << "IP solved." << endl;
+		assign_solution();
+		attest(preferences.value() == problem.objective());
+	}
+	else if (!try_SAT_solver) {
+		clog << "IP was not solved." << endl;
 		cout << problem_number << "\t"
 		     << "infeasible/timelimit" << "\t"
 		     << 0 << endl;
 		return 2;
 	}
 
-	double elapsed_time = omp_get_wtime() - start_time;
+	double solver_time = omp_get_wtime() - start_time;
 
-	clog << endl << endl << "IP solved." << endl;
-
-	for (int n = 0; n < problem.get_num_nurses(); ++n) {
-		for (int d = 0; d < problem.get_num_days(); ++d) {
-			for (int s = 0; s < problem.get_num_shifts(); ++s) {
-				if (x[n][d][s].value() > 0.5) {
-					problem.assign(n, d, s);
-				}
-			}
-		}
-	}
-
-	//for (int n = 0; n < problem.get_num_nurses(); ++n) {
-	//	clog << "Nurse " << n << endl;
-	//	for (int d = 0; d < problem.get_num_days(); ++d) {
-	//		for (int s = 0; s < problem.get_num_shifts() - 1; ++s) {
-	//			if (x[n][d][s].value() > 0.5) {
-	//				clog << "-- Works day " << d << ", shift " << s << endl;
-	//			}
-	//		}
-	//	}
-	//}
 	if (solution_file_name != "") {
 		ofstream solution(solution_file_name);
 		problem.write_to_stream(solution);
 	}
 
-	attest(preferences.value() == problem.objective());
-	clog << endl << "Preferences are " << problem.objective() << endl;
+	clog << "Obtained objective function " << problem.objective() << " in " << solver_time << " seconds." << endl;
 
 	cout << problem_number << "\t"
 	     << problem.objective() << "\t"
-	     << elapsed_time << endl;
-
+	     << startup_time + solver_time << endl;
+	
+	clog << endl;
 	return 0;
 }
 
