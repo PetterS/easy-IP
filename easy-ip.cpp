@@ -579,10 +579,14 @@ public:
 	bool preprocess;
 	std::unique_ptr<OsiSolverInterface> problem;
 	std::unique_ptr<CbcModel> model;
+	
 	#ifdef HAS_MINISAT
 	std::unique_ptr<Minisat::Solver> minisat_solver;
 	vector<Minisat::Lit> literals;
+	vector<Minisat::Lit> objective_function_literals;
+	vector<Minisat::Lit> objective_function_slack_literals;
 	#endif
+
 	std::vector<std::unique_ptr<CglCutGenerator>> generators;
 
 	bool allow_ignoring_cost_function = false;
@@ -1344,10 +1348,6 @@ bool IP::Implementation::solve_minisat()
 	minisat_solver.reset(new Minisat::Solver);
 	literals.clear();
 	for (size_t j = 0; j < cost.size(); ++j) {
-		if (!allow_ignoring_cost_function) {
-			check(cost.at(j) == 0, "SAT solve can only solve feasibility problems.");
-		}
-		
 		auto lb = var_lb.at(j);
 		auto ub = var_ub.at(j);
 		check( (lb == 0 || lb == 1) && (ub == 0 || ub == 1),
@@ -1361,6 +1361,54 @@ bool IP::Implementation::solve_minisat()
 		if (ub == 0) {
 			minisat_solver->addClause( ~literals.back());
 		}
+
+		if (!allow_ignoring_cost_function) {
+			if (cost.at(j) != 0) {
+				int icost = cost.at(j);
+				check(icost == cost.at(j), "SAT requires integer costs.");
+				attest(icost > 0);
+
+				// Add new literals equivalent to the variable and add them to
+				// the vector of cost literals.
+				for (int count = 1; count <= icost; ++count) {
+					auto lit = Minisat::mkLit(minisat_solver->newVar());
+					minisat_solver->addClause(literals.back(), ~lit);
+					minisat_solver->addClause(~literals.back(), lit);
+					objective_function_literals.emplace_back(lit);
+				}
+			}
+		}
+	}
+
+	if (objective_function_literals.size() > 0) {
+		// An objective function of
+		//   3x + y
+		// is modelled as 
+		//   x1 + x2 + x3 + y1
+		// where
+		//   x1 ⇔ x
+		//   x2 ⇔ x
+		//   x3 ⇔ x
+		//   y1 ⇔ y.
+		// Then slack variables are added with an upper bound:
+		//   x1 + x2 + x3 + y1 + s1 + s2 + s3 + s4 ≥ 4.
+		// By assuming a different number of slack variables = 1, different
+		// objective functions value can be tested for satisfiability.
+
+		// First, we need to add the slack literals to the objective function.
+		for (size_t i = 0; i < objective_function_literals.size(); ++i) {
+			auto lit = Minisat::mkLit(minisat_solver->newVar());
+			objective_function_slack_literals.emplace_back(lit);
+		}
+
+		std::vector<Minisat::Lit> objective_clause;
+		for (auto& lit: objective_function_literals) {
+			objective_clause.emplace_back(lit);
+		}
+		for (auto& lit: objective_function_slack_literals) {
+			objective_clause.emplace_back(lit);
+		}
+		add_at_most_k_constraint(minisat_solver.get(), objective_clause, objective_function_literals.size());
 	}
 
 	auto num_constraints = rhs_lower.size();
@@ -1443,6 +1491,44 @@ bool IP::Implementation::next_minisat()
 	if (!result) {
 		solution.clear();
 		return false;
+	}
+
+	if (solution.empty() && objective_function_literals.size() > 0) {
+		int upper = objective_function_slack_literals.size();
+		int lower = 0;
+		bool ok;
+		
+		do {
+			int current = (lower + upper) / 2;
+			std::clog << "Objective value in [" << lower << ", " << upper << "]." << std::endl;
+			if (lower >= upper) {
+				break;
+			}
+			std::clog << "-- Trying " << current << "... ";
+
+			Minisat::vec<Minisat::Lit> assumptions;
+			for (int i = 1; i <= objective_function_literals.size() - current; ++i) {
+				assumptions.push(objective_function_slack_literals[i]);
+			}
+			ok = minisat_solver->solve(assumptions);
+
+			if (ok) {
+				upper = current;
+				std::clog << "SAT." << std::endl;
+			}
+			else {
+				lower = current + 1;
+				std::clog << "UNSAT." << std::endl;
+			}
+		} while (true);
+
+		// Add this objective as an assumption when resolving.
+		std::vector<Minisat::Lit> neg_objective_function_literals = objective_function_literals;
+		for (auto& lit: neg_objective_function_literals) {
+			lit = ~lit;
+		}
+		add_at_most_k_constraint(minisat_solver.get(),     objective_function_literals, upper);
+		add_at_most_k_constraint(minisat_solver.get(), neg_objective_function_literals, objective_function_literals.size() - upper);
 	}
 
 	//minisat_solver->printStats();

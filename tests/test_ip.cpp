@@ -211,7 +211,7 @@ TEST_CASE("minisat")
 		IP ip;
 		ip.set_external_solver(IP::Minisat);
 		auto x = ip.add_boolean();
-		ip.add_objective(1.0 * x);
+		ip.add_objective(-x);
 		CHECK_THROWS(ip.solve());	
 	}
 
@@ -377,4 +377,45 @@ TEST_CASE("minisat-large")
 	CHECK(ip.solve());
 	CHECK(sum.value() == 50);
 }
+
+TEST_CASE("sat-objective")
+{
+	IP ip;
+	ip.set_external_solver(IP::Minisat);
+	auto x = ip.add_boolean();
+	auto y = ip.add_boolean();
+	auto z = ip.add_boolean();
+	auto w = ip.add_boolean();
+	ip.add_objective(4*x + y + 2*z + w);
+	ip.add_constraint(x + y + z + w == 2);
+	CHECK(ip.solve());
+	CHECK(!x.value());
+	CHECK( y.value());
+	CHECK(!z.value());
+	CHECK( w.value());
+}
+
+TEST_CASE("sat-objective-next_solution")
+{
+	IP ip;
+	ip.set_external_solver(IP::Minisat);
+	auto x = ip.add_boolean();
+	auto y = ip.add_boolean();
+	auto z = ip.add_boolean();
+	auto w = ip.add_boolean();
+	auto u = ip.add_boolean();
+	auto v = ip.add_boolean();
+	auto obj = 4*x + y + 2*z + w + u + v;
+	ip.add_objective(obj);
+	ip.add_constraint(x + y + z + w + u + v == 2);
+	REQUIRE(ip.solve());
+
+	int num_solutions = 0;
+	do {
+		REQUIRE(obj.value() == 2);
+		num_solutions++;
+	} while (ip.next_solution());
+	REQUIRE(num_solutions == 6);
+}
+
 #endif
