@@ -1661,6 +1661,57 @@ int IP::add_max_consequtive_constraints(int N, const std::vector<Sum>& variables
 	return constraints_added;
 }
 
+int IP::add_min_consequtive_constraints(int N, const std::vector<Sum>& variables, bool OK_at_the_border)
+{
+	if (N <= 1) {
+		return 0;
+	}
+
+	int constraints_added = 0;
+
+	for (int window_size = 1; window_size <= N - 1; ++window_size) {
+		// Look for windows of size minimum - 1 along with the
+		// surrounding slots.
+		//  
+		// […] [x1] [y1] [x2] […]
+		//
+		// x1 = 0 ∧ x2 = 0 ⇒ y1 = 0
+		// ⇔
+		// x1 + x2 - y1 ≥ 0
+		//
+		// Then add windows with more y variables. E.g. 
+		//
+		// x1 + x2 - y1 - y2 - y3 ≥ -2.
+
+		for (int window_start = 0; window_start < variables.size() - window_size + 1; ++window_start) {
+
+			Sum constraint = 0;
+
+			if (window_start - 1 >= 0) {
+				constraint += variables.at(window_start - 1);
+			}
+			else if (OK_at_the_border) {
+				constraint += variables.size();
+			}
+
+			for (int i = window_start; i < window_start + window_size; ++i) {
+				constraint -= variables.at(i);
+			}
+
+			if (window_start + window_size < variables.size()) {
+				constraint += variables.at(window_start + window_size);
+			}
+			else if (OK_at_the_border) {
+				constraint += variables.size();
+			}
+
+			add_constraint(constraint >= -window_size + 1);
+			constraints_added++;
+		}
+	}
+	return constraints_added;
+}
+
 vector<double>& IP::get_rhs_lower() { return impl->rhs_lower; }
 vector<double>& IP::get_rhs_upper() { return impl->rhs_upper; }
 vector<int>& IP::get_rows() { return impl->rows; }

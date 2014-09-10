@@ -325,6 +325,11 @@ public:
 	// Adds the constraint that at most N of the 0/1-variables can be 1 in
 	// a rows. This will add several linear constraints.
 	int add_max_consequtive_constraints(int N, const std::vector<Sum>& variables);
+	// Adds the constraint that at least N of the 0/1-variables must be consequtive
+	// whenever they are 1.
+	// If OK_at_the_border is true, the imaginary variables surrounding the vector
+	// are treated as 1.
+	int add_min_consequtive_constraints(int N, const std::vector<Sum>& variables, bool OK_at_the_border);
 
 	/// Adds the constraint
 	///    L <= variable <= U

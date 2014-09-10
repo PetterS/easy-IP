@@ -212,3 +212,139 @@ TEST_CASE("add_max_consequtive_constraints")
 	CHECK(x[8].value() == 1);
 	CHECK(x[9].value() == 1);
 }
+
+TEST_CASE("add_min_consequtive_constraints-2-false")
+{
+	{
+		IP ip;
+		vector<Sum> x;
+		Sum x_sum = 0;
+		for (int i = 1; i <= 3; ++i) {
+			x.emplace_back(ip.add_boolean());
+			x_sum += x.back();
+		}
+		ip.add_constraint(x_sum == 2);
+		ip.add_min_consequtive_constraints(2, x, false);
+		int num_solutions = 0;
+		REQUIRE(ip.solve(nullptr, true));
+		do {
+			num_solutions++;
+		} while (ip.next_solution());
+		REQUIRE(num_solutions == 2);
+	}
+
+	{
+		IP ip;
+		vector<Sum> x;
+		Sum x_sum = 0;
+		for (int i = 1; i <= 5; ++i) {
+			x.emplace_back(ip.add_boolean());
+			x_sum += x.back();
+		}
+		ip.add_constraint(x_sum == 4);
+		ip.add_min_consequtive_constraints(2, x, false);
+		int num_solutions = 0;
+		REQUIRE(ip.solve(nullptr, true));
+		do {
+			for (auto& xx: x) clog << xx.value() << " "; clog << "\n";
+			num_solutions++;
+		} while (ip.next_solution());
+		REQUIRE(num_solutions == 3);
+	}
+}
+
+TEST_CASE("add_min_consequtive_constraints-2-true")
+{
+	IP ip;
+	vector<Sum> x;
+	Sum x_sum = 0;
+	for (int i = 1; i <= 3; ++i) {
+		x.emplace_back(ip.add_boolean());
+		x_sum += x.back();
+	}
+	ip.add_constraint(x_sum == 2);
+	ip.add_min_consequtive_constraints(2, x, true);
+	int num_solutions = 0;
+	REQUIRE(ip.solve(nullptr, true));
+	do {
+		num_solutions++;
+	} while (ip.next_solution());
+	REQUIRE(num_solutions == 3);
+}
+
+TEST_CASE("add_min_consequtive_constraints-3-false")
+{
+	IP ip;
+	vector<Sum> x;
+	Sum x_sum = 0;
+	for (int i = 1; i <= 5; ++i) {
+		x.emplace_back(ip.add_boolean());
+		x_sum += x.back();
+	}
+	ip.add_constraint(x_sum == 3);
+	ip.add_min_consequtive_constraints(3, x, false);
+	int num_solutions = 0;
+	REQUIRE(ip.solve(nullptr, true));
+	do {
+		num_solutions++;
+	} while (ip.next_solution());
+	CHECK(num_solutions == 3);
+}
+
+TEST_CASE("add_min_consequtive_constraints-3-true")
+{
+	IP ip;
+	vector<Sum> x;
+	Sum x_sum = 0;
+	for (int i = 1; i <= 5; ++i) {
+		x.emplace_back(ip.add_boolean());
+		x_sum += x.back();
+	}
+	ip.add_constraint(x_sum == 3);
+	ip.add_min_consequtive_constraints(3, x, true);
+	int num_solutions = 0;
+	REQUIRE(ip.solve(nullptr, true));
+	do {
+		num_solutions++;
+	} while (ip.next_solution());
+	REQUIRE(num_solutions == 5);
+}
+
+TEST_CASE("add_min_consequtive_constraints-5-false")
+{
+	IP ip;
+	vector<Sum> x;
+	Sum x_sum = 0;
+	for (int i = 1; i <= 12; ++i) {
+		x.emplace_back(ip.add_boolean());
+		x_sum += x.back();
+	}
+	ip.add_constraint(x_sum == 6);
+	ip.add_min_consequtive_constraints(5, x, false);
+	int num_solutions = 0;
+	REQUIRE(ip.solve(nullptr, true));
+	do {
+		num_solutions++;
+	} while (ip.next_solution());
+	CHECK(num_solutions == 7);
+}
+
+TEST_CASE("add_min_consequtive_constraints-5-true")
+{
+	IP ip;
+	vector<Sum> x;
+	Sum x_sum = 0;
+	for (int i = 1; i <= 12; ++i) {
+		x.emplace_back(ip.add_boolean());
+		x_sum += x.back();
+	}
+	ip.add_constraint(x_sum == 3);
+	ip.add_min_consequtive_constraints(5, x, true);
+	int num_solutions = 0;
+	REQUIRE(ip.solve(nullptr, true));
+	do {
+		for (auto& xx: x) clog << xx.value() << " "; clog << "\n";
+		num_solutions++;
+	} while (ip.next_solution());
+	REQUIRE(num_solutions == 4);
+}

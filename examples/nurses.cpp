@@ -180,51 +180,6 @@ protected:
 	std::vector<std::vector<int>> assignments;
 };
 
-
-// Adds constraints forbidding less than N consequtive variables in a row. 
-int add_min_consequtive_constraints(IP* ip, int N, const std::vector<Sum>& variables)
-{
-	if (N <= 1) {
-		return 0;
-	}
-
-	int constraints_added = 0;
-
-	for (int window_size = 1; window_size <= N - 1; ++window_size) {
-		// Look for windows of size minimum - 1 along with the
-		// surrounding slots.
-		//  
-		// […] [x1] [y1] [x2] […]
-		//
-		// x1 = 0 ∧ x2 = 0 ⇒ y1 = 0
-		// ⇔
-		// x1 + x2 - y1 ≥ 0
-		//
-		// Then add windows with more y variables.
-
-		for (int window_start = 0; window_start < variables.size() - window_size; ++window_start) {
-
-			Sum constraint = 0;
-
-			if (window_start - 1 >= 0) {
-				constraint += variables.at(window_start - 1);
-			}
-
-			for (int i = window_start; i < window_start + window_size; ++i) {
-				constraint -= variables.at(i);
-			}
-
-			if (window_start + window_size < variables.size()) {
-				constraint += variables.at(window_start + window_size);
-			}
-
-			ip->add_constraint(constraint >= 0);
-			constraints_added++;
-		}
-	}
-	return constraints_added;
-}
-
 int main_program(int num_args, char* args[])
 {
 	using namespace std;
@@ -310,8 +265,10 @@ int main_program(int num_args, char* args[])
 			for (int d = 0; d < problem.get_num_days(); ++d) {
 				working_on_days.emplace_back(working_on_day(n, d));
 			}
+
+			// I think this constraint should have ’false,’ i.e. singles at borders can be disallowed.
 			constraints_added +=
-				add_min_consequtive_constraints(&ip, problem.get_min_consequtive(), working_on_days);
+				ip.add_min_consequtive_constraints(problem.get_min_consequtive(), working_on_days, false);
 
 			constraints_added +=
 				ip.add_max_consequtive_constraints(problem.get_max_consequtive(), working_on_days);
@@ -329,8 +286,10 @@ int main_program(int num_args, char* args[])
 				for (int d = 0; d < problem.get_num_days(); ++d) {
 					working_on_days.emplace_back(x[n][d][s]);
 				}
+
+				// I think this constraint should have ’false,’ i.e. singles at borders can be disallowed.
 				constraints_added +=
-					add_min_consequtive_constraints(&ip, problem.get_min_consequtive(s), working_on_days);
+					ip.add_min_consequtive_constraints(problem.get_min_consequtive(s), working_on_days, false);
 
 				constraints_added +=
 					ip.add_max_consequtive_constraints(problem.get_max_consequtive(s), working_on_days);
