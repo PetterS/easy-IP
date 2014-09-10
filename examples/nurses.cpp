@@ -414,12 +414,7 @@ int main_program(int num_args, char* args[])
 	start_time = omp_get_wtime();
 
 	// Try SAT solver first.
-	bool try_SAT_solver =
-		#ifdef HAS_MINISAT
-			true;
-		#else
-			false;
-		#endif
+	bool try_SAT_solver = true;
 	if (try_SAT_solver) {
 		start_time = omp_get_wtime();
 		ip.set_external_solver(IP::Minisat);

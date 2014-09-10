@@ -1,6 +1,7 @@
 # Author: petter.strandmark@gmail.com (Petter Strandmark)
 
 ADD_LIBRARY(Catch main_test_program.cpp)
+SET_PROPERTY(TARGET Catch PROPERTY FOLDER "Third-party")
 
 MACRO (CREATE_TEST NAME)
 	ADD_EXECUTABLE(${NAME} 

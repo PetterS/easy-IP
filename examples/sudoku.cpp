@@ -133,24 +133,19 @@ void main_program()
 		}
 	};
 
-	#ifndef HAS_MINISAT
-	#define HAS_MINISAT false
-	#endif
-	if (HAS_MINISAT) {
-		cerr << "Solving with Minisat..." << endl;		
-		auto start_time = wall_time();
+	cerr << "Solving with Minisat..." << endl;		
+	auto start_time = wall_time();
 
-		ip.set_external_solver(IP::Minisat);
-		attest(ip.solve());
-		do {
-			print_solution();
-		} while (ip.next_solution());
+	ip.set_external_solver(IP::Minisat);
+	attest(ip.solve());
+	do {
+		print_solution();
+	} while (ip.next_solution());
 
-		cerr << "Found all solutions in " << wall_time() - start_time << " seconds." << endl;
-	}
+	cerr << "Found all solutions in " << wall_time() - start_time << " seconds." << endl;
 
 	cerr << "Solving with IP solver..." << endl;
-	auto start_time = wall_time();
+	start_time = wall_time();
 
 	ip.set_external_solver(IP::Default);
 	//ip.set_external_solver(IP::MOSEK);

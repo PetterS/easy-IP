@@ -19,9 +19,9 @@
 	#include <coin/OsiMskSolverInterface.hpp>
 #endif
 
-#ifdef HAS_MINISAT
-	#include <minisat/core/Solver.h>
-#endif
+
+#include "minisat/core/Solver.h"
+
 
 #include <coin/CbcModel.hpp>
 #include <coin/CbcEventHandler.hpp>
@@ -580,12 +580,10 @@ public:
 	std::unique_ptr<OsiSolverInterface> problem;
 	std::unique_ptr<CbcModel> model;
 	
-	#ifdef HAS_MINISAT
 	std::unique_ptr<Minisat::Solver> minisat_solver;
 	vector<Minisat::Lit> literals;
 	vector<Minisat::Lit> objective_function_literals;
 	vector<Minisat::Lit> objective_function_slack_literals;
-	#endif
 
 	std::vector<std::unique_ptr<CglCutGenerator>> generators;
 
@@ -945,16 +943,11 @@ void IP::set_external_solver(Solver solver)
 {
 	impl->external_solver = solver;
 
-	#ifdef HAS_MINISAT
-		impl->minisat_solver.release();
-		impl->literals.clear();
-	#endif
+	impl->minisat_solver.release();
+	impl->literals.clear();
+	impl->objective_function_literals.clear();
+	impl->objective_function_slack_literals.clear();
 
-	if (solver == Minisat) {
-		#ifndef HAS_MINISAT
-			throw std::runtime_error("IP::set_external_solver: Minisat not installed.");
-		#endif
-	}
 	if (solver == CPLEX) {
 		#ifndef HAS_CPLEX
 			throw std::runtime_error("IP::set_external_solver: CPLEX not installed.");
@@ -1259,7 +1252,6 @@ void IP::allow_ignoring_cost_function()
 	impl->allow_ignoring_cost_function = true;
 }
 
-#ifdef HAS_MINISAT
 void add_at_most_k_constraint_binomial(Minisat::Solver* solver,
                                        const vector<Minisat::Lit>& literals,
                                        int k)
@@ -1338,11 +1330,9 @@ void add_at_most_k_constraint(Minisat::Solver* solver,
 	// (¬xn ∨ ¬sn−1,k)
 	solver->addClause(~X[n-1], ~s[n-2][k-1]);
 }
-#endif
 
 bool IP::Implementation::solve_minisat()
 {
-#ifdef HAS_MINISAT
 	using namespace std;
 
 	minisat_solver.reset(new Minisat::Solver);
@@ -1461,15 +1451,10 @@ bool IP::Implementation::solve_minisat()
 
 	solution.clear();
 	return next_minisat();
-#else
-	check(false, "Minisat is not available.");
-	return false;
-#endif
 }
 
 bool IP::Implementation::next_minisat()
 {
-#ifdef HAS_MINISAT
 	attest(minisat_solver);
 
 	if (!solution.empty()) {
@@ -1556,10 +1541,6 @@ bool IP::Implementation::next_minisat()
 	}
 
 	return true;
-#else
-	check(false, "Minisat is not available.");
-	return false;
-#endif
 }
 
 bool IP::next_solution()
