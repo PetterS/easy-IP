@@ -1562,6 +1562,7 @@ bool IP::next_solution()
 		objective = solver->getObjCoefficients();
 	}
 	else {
+		attest(impl->model);
 		refSolver = impl->model->referenceSolver();
 		solver = impl->model->solver();
 
@@ -1639,6 +1640,25 @@ void IP::clear()
 	impl->solution.clear();
 
 	impl->integer_variables.clear();
+}
+
+int IP::add_max_consequtive_constraints(int N, const std::vector<Sum>& variables)
+{
+	if (N >= variables.size()) {
+		return 0;
+	}
+
+	int constraints_added = 0;
+
+	for (int d = 0; d < variables.size() - N; ++d) {
+		Sum active_in_window = 0;
+		for (int d2 = d; d2 < d + N + 1; ++d2) {
+			active_in_window += variables.at(d2);
+		}
+		add_constraint(active_in_window <= N);
+		constraints_added++;
+	}
+	return constraints_added;
 }
 
 vector<double>& IP::get_rhs_lower() { return impl->rhs_lower; }

@@ -186,3 +186,29 @@ TEST_CASE("add_variable_as_booleans")
 	CHECK(x.value() == -3);
 	CHECK(y.value() == 3);
 }
+
+TEST_CASE("add_max_consequtive_constraints")
+{
+	IP ip;
+	vector<Sum> x;
+	for (int i = 1; i <= 10; ++i) {
+		x.emplace_back(ip.add_boolean(-1.0));
+	}
+	ip.add_max_consequtive_constraints(5, x);
+	int num_solutions = 0;
+	ip.solve();
+	do {
+		num_solutions++;
+	} while (ip.next_solution());
+	REQUIRE(num_solutions == 2);
+	CHECK(x[0].value() == 1);
+	CHECK(x[1].value() == 1);
+	CHECK(x[2].value() == 1);
+	CHECK(x[3].value() == 1);
+	//CHECK(x[4].value() == ?);
+	//CHECK(x[5].value() == ?);
+	CHECK(x[6].value() == 1);
+	CHECK(x[7].value() == 1);
+	CHECK(x[8].value() == 1);
+	CHECK(x[9].value() == 1);
+}

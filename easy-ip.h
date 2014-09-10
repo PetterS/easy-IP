@@ -322,6 +322,10 @@ public:
 
 	//void add_constraint(const LogicalExpression& expression);
 
+	// Adds the constraint that at most N of the 0/1-variables can be 1 in
+	// a rows. This will add several linear constraints.
+	int add_max_consequtive_constraints(int N, const std::vector<Sum>& variables);
+
 	/// Adds the constraint
 	///    L <= variable <= U
 	void set_bounds(double L, const Variable& variable, double U);

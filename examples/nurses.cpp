@@ -184,6 +184,10 @@ protected:
 // Adds constraints forbidding less than N consequtive variables in a row. 
 int add_min_consequtive_constraints(IP* ip, int N, const std::vector<Sum>& variables)
 {
+	if (N <= 1) {
+		return 0;
+	}
+
 	int constraints_added = 0;
 
 	for (int window_size = 1; window_size <= N - 1; ++window_size) {
@@ -297,8 +301,8 @@ int main_program(int num_args, char* args[])
 		ip.add_constraint(problem.get_min_assignments(), num_assignments, problem.get_max_assignments());
 	}
 
-	// Min consequtive days working.
-	if (problem.get_min_consequtive() > 1) {
+	// Min/max consequtive days working.
+	{
 		int constraints_added = 0;
 		for (int n = 0; n < problem.get_num_nurses(); ++n) {
 
@@ -308,67 +312,32 @@ int main_program(int num_args, char* args[])
 			}
 			constraints_added +=
 				add_min_consequtive_constraints(&ip, problem.get_min_consequtive(), working_on_days);
+
+			constraints_added +=
+				ip.add_max_consequtive_constraints(problem.get_max_consequtive(), working_on_days);
 		}
-		clog << "Added " << constraints_added << " constraints for minimum consequtive days." << endl;
+		clog << "Added " << constraints_added << " constraints for minimum/maximum consequtive days." << endl;
 	}
 
-	// Min consequtive days working a specific shift.
+	// Min/max consequtive days working a specific shift.
 	{
 		int constraints_added = 0;
 		for (int s = 0; s < problem.get_num_shifts(); ++s) {
-			if (problem.get_min_consequtive(s) > 1) {
+			for (int n = 0; n < problem.get_num_nurses(); ++n) {
 
-				for (int n = 0; n < problem.get_num_nurses(); ++n) {
-
-					vector<Sum> working_on_days;
-					for (int d = 0; d < problem.get_num_days(); ++d) {
-						working_on_days.emplace_back(x[n][d][s]);
-					}
-					constraints_added +=
-						add_min_consequtive_constraints(&ip, problem.get_min_consequtive(s), working_on_days);
+				vector<Sum> working_on_days;
+				for (int d = 0; d < problem.get_num_days(); ++d) {
+					working_on_days.emplace_back(x[n][d][s]);
 				}
+				constraints_added +=
+					add_min_consequtive_constraints(&ip, problem.get_min_consequtive(s), working_on_days);
+
+				constraints_added +=
+					ip.add_max_consequtive_constraints(problem.get_max_consequtive(s), working_on_days);
 			}
 		}
 		if (constraints_added > 0) {
-			clog << "Added " << constraints_added << " constraints for minimum consequtive days of specific shifts." << endl;
-		}
-	}
-
-	// Max consequtive days working.
-	if (problem.get_max_consequtive() < problem.get_max_assignments()) {
-		int constraints_added = 0;
-		for (int n = 0; n < problem.get_num_nurses(); ++n) {
-			for (int d = 0; d < problem.get_num_days() - problem.get_max_consequtive(); ++d) {
-				Sum working_in_window = 0;
-				for (int d2 = d; d2 < d + problem.get_max_consequtive(); ++d2) {
-					working_in_window += working_on_day(n, d2);
-				}
-				ip.add_constraint(working_in_window <= problem.get_max_consequtive());
-				constraints_added++;
-			}
-		}
-		clog << "Added " << constraints_added << " constraints for maximum consequtive days." << endl;
-	}
-
-	// Max consequtive days working a specific shift.
-	{
-		int constraints_added = 0;
-		for (int s = 0; s < problem.get_num_shifts(); ++s) {
-			if (problem.get_max_consequtive(s) < problem.get_max_assignments()) {
-				for (int n = 0; n < problem.get_num_nurses(); ++n) {
-					for (int d = 0; d < problem.get_num_days() - problem.get_max_consequtive(s); ++d) {
-						Sum working_in_window = 0;
-						for (int d2 = d; d2 < d + problem.get_max_consequtive(s); ++d2) {
-							working_in_window += x[n][d2][s];
-						}
-						ip.add_constraint(working_in_window <= problem.get_max_consequtive(s));
-						constraints_added++;
-					}
-				}
-			}
-		}
-		if (constraints_added > 0) {
-			clog << "Added " << constraints_added << " constraints for maximum consequtive days of specific shifts." << endl;
+			clog << "Added " << constraints_added << " constraints for minimum/maximum consequtive days of specific shifts." << endl;
 		}
 	}
 
