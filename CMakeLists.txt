@@ -41,11 +41,7 @@ ENDIF (NOT CMAKE_BUILD_TYPE)
 #
 IF (CMAKE_COMPILER_IS_GNUCXX)
   MESSAGE("-- Enabling C++11 support for gcc.")
-
-  # No warnings for C. The Meschach library contains really old code.
-  # -fPIC for building a shared library.
-  set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -w -fPIC")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -std=c++0x")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -std=c++0x")
 ENDIF (CMAKE_COMPILER_IS_GNUCXX)
 
 #
