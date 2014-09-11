@@ -1735,6 +1735,25 @@ int IP::add_min_consequtive_constraints(int N, const std::vector<Sum>& variables
 	return constraints_added;
 }
 
+void IP::save_MPS(const std::string& file_name)
+{
+	OsiSolverInterface* solver = nullptr;
+	std::unique_ptr<OsiSolverInterface> new_problem;
+
+	if (impl->use_osi() && impl->problem) {
+		solver = impl->problem.get();
+	}
+	else if (impl->model) {
+		attest(impl->model);
+		solver = impl->model->solver();
+	}
+	else {
+		get_problem(new_problem);
+		solver = new_problem.get();
+	}
+	solver->writeMps(file_name.c_str());
+}
+
 vector<double>& IP::get_rhs_lower() { return impl->rhs_lower; }
 vector<double>& IP::get_rhs_upper() { return impl->rhs_upper; }
 vector<int>& IP::get_rows() { return impl->rows; }

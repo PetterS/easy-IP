@@ -388,6 +388,7 @@ public:
 	/// which this library might not know about.
 	void get_problem(std::unique_ptr<OsiSolverInterface>& existing_solver);
 
+	void save_MPS(const std::string& file_name);
 
 protected:
 	vector<double>& get_rhs_lower();
