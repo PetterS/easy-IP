@@ -235,6 +235,7 @@ TEST_CASE("add_min_consequtive_constraints-2-false")
 
 	{
 		IP ip;
+		ip.set_external_solver(IP::Minisat);  // Avoid Cbc crash in old versions.
 		vector<Sum> x;
 		Sum x_sum = 0;
 		for (int i = 1; i <= 5; ++i) {
@@ -256,6 +257,7 @@ TEST_CASE("add_min_consequtive_constraints-2-false")
 TEST_CASE("add_min_consequtive_constraints-2-true")
 {
 	IP ip;
+	ip.set_external_solver(IP::Minisat);  // Avoid Cbc crash in old versions.
 	vector<Sum> x;
 	Sum x_sum = 0;
 	for (int i = 1; i <= 3; ++i) {
@@ -275,6 +277,7 @@ TEST_CASE("add_min_consequtive_constraints-2-true")
 TEST_CASE("add_min_consequtive_constraints-3-false")
 {
 	IP ip;
+	ip.set_external_solver(IP::Minisat);  // Avoid Cbc crash in old versions.
 	vector<Sum> x;
 	Sum x_sum = 0;
 	for (int i = 1; i <= 5; ++i) {
@@ -294,6 +297,7 @@ TEST_CASE("add_min_consequtive_constraints-3-false")
 TEST_CASE("add_min_consequtive_constraints-3-true")
 {
 	IP ip;
+	ip.set_external_solver(IP::Minisat);  // Avoid Cbc crash in old versions.
 	vector<Sum> x;
 	Sum x_sum = 0;
 	for (int i = 1; i <= 5; ++i) {
@@ -313,6 +317,7 @@ TEST_CASE("add_min_consequtive_constraints-3-true")
 TEST_CASE("add_min_consequtive_constraints-5-false")
 {
 	IP ip;
+	ip.set_external_solver(IP::Minisat);  // Avoid Cbc crash in old versions.
 	vector<Sum> x;
 	Sum x_sum = 0;
 	for (int i = 1; i <= 12; ++i) {
@@ -332,6 +337,7 @@ TEST_CASE("add_min_consequtive_constraints-5-false")
 TEST_CASE("add_min_consequtive_constraints-5-true")
 {
 	IP ip;
+	ip.set_external_solver(IP::Minisat);  // Avoid Cbc crash in old versions.
 	vector<Sum> x;
 	Sum x_sum = 0;
 	for (int i = 1; i <= 12; ++i) {
@@ -351,6 +357,7 @@ TEST_CASE("add_min_consequtive_constraints-5-true")
 TEST_CASE("add_min_max_consequtive_constraints-4")
 {
 	IP ip;
+	ip.set_external_solver(IP::Minisat);  // Avoid Cbc crash in old versions.
 	vector<Sum> x;
 	Sum x_sum = 0;
 	for (int i = 1; i <= 12; ++i) {
@@ -382,6 +389,7 @@ TEST_CASE("add_min_max_consequtive_constraints-4")
 TEST_CASE("add_min_max_consequtive_constraints-5")
 {
 	IP ip;
+	ip.set_external_solver(IP::Minisat);  // Avoid Cbc crash in old versions.
 	vector<Sum> x;
 	Sum x_sum = 0;
 	for (int i = 1; i <= 12; ++i) {
