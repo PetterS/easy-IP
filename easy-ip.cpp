@@ -1682,6 +1682,13 @@ int IP::add_min_consequtive_constraints(int N, const std::vector<Sum>& variables
 	if (N <= 1) {
 		return 0;
 	}
+	attest(N <= variables.size());
+	if (N == variables.size()) {
+		for (auto& var: variables) {
+			add_constraint(var == 1);
+		}
+		return 0;
+	}
 
 	int constraints_added = 0;
 
@@ -1707,7 +1714,7 @@ int IP::add_min_consequtive_constraints(int N, const std::vector<Sum>& variables
 				constraint += variables.at(window_start - 1);
 			}
 			else if (OK_at_the_border) {
-				constraint += variables.size();
+				continue;
 			}
 
 			for (int i = window_start; i < window_start + window_size; ++i) {
@@ -1718,7 +1725,7 @@ int IP::add_min_consequtive_constraints(int N, const std::vector<Sum>& variables
 				constraint += variables.at(window_start + window_size);
 			}
 			else if (OK_at_the_border) {
-				constraint += variables.size();
+				continue;
 			}
 
 			add_constraint(constraint >= -window_size + 1);
