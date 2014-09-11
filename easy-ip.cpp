@@ -1405,8 +1405,24 @@ bool IP::Implementation::solve_minisat()
 	std::vector<int> lower(num_constraints);
 	std::vector<int> upper(num_constraints);
 	for (size_t i = 0; i < num_constraints; ++i) {
-		lower[i] = int(std::max(rhs_lower.at(i), 0.0) + 0.5);
-		upper[i] = int(std::min(rhs_upper.at(i), double(literals.size())) + 0.5);
+		auto to_int = [](double rhs)
+		{
+			const int limit = 1000 * 1000 * 1000;
+			if (rhs > limit) {
+				return limit;
+			}
+			else if (rhs < -limit) {
+				return -limit;
+			}
+			else {
+				int irhs = rhs;
+				attest(rhs == irhs);
+				return irhs;
+			}
+		};
+
+		lower[i] = to_int(rhs_lower.at(i));
+		upper[i] = to_int(rhs_upper.at(i));
 	}
 
 	vector<vector<Minisat::Lit>> lit_rows(num_constraints);
@@ -1534,8 +1550,8 @@ bool IP::Implementation::next_minisat()
 		row_sums.at(rows.at(ind)) += coeff * var;
 	}
 	for (size_t i = 0; i < num_constraints; ++i) {
-		int lower = int(std::max(rhs_lower.at(i), 0.0) + 0.5);
-		int upper = int(std::min(rhs_upper.at(i), double(solution.size())) + 0.5);
+		auto lower = rhs_lower.at(i);
+		auto upper = rhs_upper.at(i);
 		attest(lower - 1e-9   <= row_sums.at(i));
 		attest(row_sums.at(i) <= upper + 1e-9);
 	}

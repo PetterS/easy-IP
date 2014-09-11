@@ -294,3 +294,88 @@ TEST_CASE("sat-objective-next_solution")
 	} while (ip.next_solution());
 	REQUIRE(num_solutions == 6);
 }
+
+TEST_CASE("add_min_consequtive_constraints-2-true")
+{
+	IP ip;
+	ip.set_external_solver(IP::Minisat);
+	vector<Sum> x;
+	Sum x_sum = 0;
+	for (int i = 1; i <= 3; ++i) {
+		x.emplace_back(ip.add_boolean());
+		x_sum += x.back();
+	}
+	ip.add_constraint(x_sum == 2);
+	ip.add_min_consequtive_constraints(2, x, true);
+	int num_solutions = 0;
+	REQUIRE(ip.solve(nullptr, true));
+	do {
+		num_solutions++;
+	} while (ip.next_solution());
+
+	// 1 1 0
+	// 0 1 1
+	// 1 0 1
+	REQUIRE(num_solutions == 3);
+}
+
+TEST_CASE("add_min_max_consequtive_constraints-4")
+{
+	IP ip;
+	ip.set_external_solver(IP::Minisat);
+	vector<Sum> x;
+	Sum x_sum = 0;
+	for (int i = 1; i <= 12; ++i) {
+		x.emplace_back(ip.add_boolean());
+		x_sum += x.back();
+	}
+	ip.add_min_consequtive_constraints(4, x, false);
+	ip.add_max_consequtive_constraints(4, x);
+
+	int num_solutions = 0;
+	REQUIRE(ip.solve(nullptr, true));
+	do {
+		CHECK(x_sum.value() <= 8);
+		int consequtive = 0;
+		for (auto& xx : x) {
+			if (xx.value()) {
+				consequtive++;
+			}
+			else {
+				consequtive = 0;
+			}
+			CHECK(consequtive <= 4);
+		}
+		num_solutions++;
+	} while (ip.next_solution());
+	CHECK(num_solutions == 20);
+}
+
+TEST_CASE("add_min_max_consequtive_constraints-5")
+{
+	IP ip;
+	ip.set_external_solver(IP::Minisat);
+	vector<Sum> x;
+	Sum x_sum = 0;
+	for (int i = 1; i <= 12; ++i) {
+		x.emplace_back(ip.add_boolean());
+		x_sum += x.back();
+	}
+	ip.add_min_consequtive_constraints(5, x, false);
+	ip.add_max_consequtive_constraints(5, x);
+	int num_solutions = 0;
+	REQUIRE(ip.solve(nullptr, true));
+	do {
+		int consequtive = 0;
+		for (auto& xx : x) {
+			if (xx.value()) {
+			}
+			else {
+				consequtive = 0;
+			}
+			CHECK(consequtive <= 5);
+		}
+		num_solutions++;
+	} while (ip.next_solution());
+	CHECK(num_solutions == 12);
+}
