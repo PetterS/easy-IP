@@ -584,6 +584,7 @@ public:
 	vector<Minisat::Lit> literals;
 	vector<Minisat::Lit> objective_function_literals;
 	vector<Minisat::Lit> objective_function_slack_literals;
+	int sat_objective_offset = 0;
 
 	std::vector<std::unique_ptr<CglCutGenerator>> generators;
 
@@ -1356,14 +1357,17 @@ bool IP::Implementation::solve_minisat()
 			if (cost.at(j) != 0) {
 				int icost = cost.at(j);
 				check(icost == cost.at(j), "SAT requires integer costs.");
-				attest(icost > 0);
 
 				// Add new literals equivalent to the variable and add them to
 				// the vector of cost literals.
-				for (int count = 1; count <= icost; ++count) {
+				for (int count = 1; count <= std::abs(icost); ++count) {
 					auto lit = Minisat::mkLit(minisat_solver->newVar());
 					minisat_solver->addClause(literals.back(), ~lit);
 					minisat_solver->addClause(~literals.back(), lit);
+					if (icost < 0) {
+						lit = ~lit;
+						sat_objective_offset -= 1;
+					}
 					objective_function_literals.emplace_back(lit);
 				}
 			}
@@ -1501,11 +1505,11 @@ bool IP::Implementation::next_minisat()
 		
 		do {
 			int current = (lower + upper) / 2;
-			std::clog << "Objective value in [" << lower << ", " << upper << "]." << std::endl;
+			std::clog << "Objective value in [" << lower + sat_objective_offset << ", " << upper + sat_objective_offset << "]." << std::endl;
 			if (lower >= upper) {
 				break;
 			}
-			std::clog << "-- Trying " << current << "... ";
+			std::clog << "-- Trying " << current + sat_objective_offset << "... ";
 
 			Minisat::vec<Minisat::Lit> assumptions;
 			for (int i = 1; i <= objective_function_literals.size() - current; ++i) {
