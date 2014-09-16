@@ -77,7 +77,7 @@ int main()
 		vector<char> bookings(T, '-');
 		for (int k = 0; k < K; ++k) {
 			auto Tk = all_bookings[k];
-			if (x[k][s].value()) {
+			if (x[k][s].bool_value()) {
 				for (int t = Tk.first; t <= Tk.second; ++t) {
 					attest(bookings[t] == '-');
 					bookings[t] = '0' + k % 10;

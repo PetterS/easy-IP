@@ -29,7 +29,7 @@ int main()
 	ip.solve();
 
 	for (int i = 0; i < 12; ++i) {
-		if (amount[i].value()) {
+		if (amount[i].bool_value()) {
 			cout << "Item #" << i+1 << endl;
 		}
 	}

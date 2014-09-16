@@ -78,12 +78,60 @@ double EASY_IP_API wall_time()
 	#endif
 }
 
+//
+// spii_at_scope_exit( statement; ) executes statement at the end 
+// of the current scope.
+//
+template <typename F>
+class ScopeGuard
+{
+public:
+    ScopeGuard(F&& f)
+		: f(std::forward<F>(f))
+	{}
+
+	ScopeGuard(ScopeGuard&& guard)
+		: f(std::move(guard.f)), active(guard.active)
+	{
+		guard.dismiss();
+	}
+
+    ~ScopeGuard()
+	{
+		if (active) { 
+			f();
+		}
+	}
+
+	ScopeGuard(const ScopeGuard&) = delete;
+	ScopeGuard& operator = (const ScopeGuard&) = delete;
+
+	void dismiss()
+	{
+		active = false;
+	}
+
+private:
+    F f;
+	bool active = true;
+};
+
+template <typename F>
+ScopeGuard<F> make_scope_guard(F&& f) {
+    return std::move(ScopeGuard<F>(std::forward<F>(f)));
+};
+
+#define EASYIP_JOIN_PP_SYMBOLS_HELPER(arg1, arg2) arg1 ## arg2
+#define EASYIP_JOIN_PP_SYMBOLS(arg1, arg2) EASYIP_JOIN_PP_SYMBOLS_HELPER(arg1, arg2)
+#define easyip_at_scope_exit(code) \
+    auto EASYIP_JOIN_PP_SYMBOLS(easyip_scope_exit_guard_, __LINE__) = ::make_scope_guard([&](){code;})
+
 double Variable::value() const
 {
 	return creator->get_solution(*this);
 }
 
-bool BooleanVariable::value() const
+bool BooleanVariable::bool_value() const
 {
 	return creator->get_solution(*this);
 }
@@ -96,7 +144,7 @@ std::ostream& operator << (std::ostream& out, const Variable& variable)
 
 std::ostream& operator << (std::ostream& out, const BooleanVariable& variable)
 {
-	out << variable.value();
+	out << variable.bool_value();
 	return out;
 }
 
@@ -1247,6 +1295,19 @@ bool IP::solve(const CallBack& callback_function, bool silent_mode)
 
 	return impl->parse_solution();
 }
+
+bool IP::solve_relaxation()
+{
+	attest(impl->external_solver != IP::Minisat);
+	std::vector<size_t> integer_variables_copy;
+	integer_variables_copy.swap(impl->integer_variables);
+
+	easyip_at_scope_exit(impl->integer_variables.swap(integer_variables_copy));
+	easyip_at_scope_exit(impl->problem.release());
+
+	return solve();
+}
+
 
 void IP::allow_ignoring_cost_function()
 {

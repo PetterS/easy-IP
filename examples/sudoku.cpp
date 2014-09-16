@@ -118,7 +118,7 @@ void main_program()
 		for (int i = 0; i < n*n; ++i) {
 			for (int j = 0; j < n*n; ++j) {
 				for (int k = 0; k < n*n; ++k) {
-					if (P[i][j][k].value()) {
+					if (P[i][j][k].bool_value()) {
 						cout << k+1;
 					}
 				}

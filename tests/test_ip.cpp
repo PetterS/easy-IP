@@ -142,7 +142,7 @@ TEST_CASE("sudoku")
 			solution[i].emplace_back();
 
 			for (int k = 0; k < n*n; ++k) {
-				if (P[i][j][k].value()) {
+				if (P[i][j][k].bool_value()) {
 					solution[i][j] = k + 1;
 				}
 			}
@@ -247,7 +247,6 @@ TEST_CASE("add_min_consequtive_constraints-2-false")
 		int num_solutions = 0;
 		REQUIRE(ip.solve(nullptr, true));
 		do {
-			for (auto& xx: x) clog << xx.value() << " "; clog << "\n";
 			num_solutions++;
 		} while (ip.next_solution());
 		REQUIRE(num_solutions == 3);
@@ -373,7 +372,7 @@ TEST_CASE("add_min_max_consequtive_constraints-4")
 		CHECK(x_sum.value() <= 8);
 		int consequtive = 0;
 		for (auto& xx : x) {
-			if (xx.value()) {
+			if (xx.value() > 0.5) {
 				consequtive++;
 			}
 			else {
@@ -403,7 +402,7 @@ TEST_CASE("add_min_max_consequtive_constraints-5")
 	do {
 		int consequtive = 0;
 		for (auto& xx : x) {
-			if (xx.value()) {
+			if (xx.value() > 0.5) {
 			}
 			else {
 				consequtive = 0;
@@ -413,4 +412,23 @@ TEST_CASE("add_min_max_consequtive_constraints-5")
 		num_solutions++;
 	} while (ip.next_solution());
 	CHECK(num_solutions == 12);
+}
+
+TEST_CASE("solve_relaxation")
+{
+	IP ip;
+	auto x = ip.add_boolean();
+	auto y = ip.add_boolean();
+	Sum objective = -x - y;
+	ip.add_objective(objective);
+	ip.add_constraint(2*x <= 1);
+	ip.add_constraint(2*y <= 1);
+	REQUIRE(ip.solve_relaxation());
+	CHECK(Approx(objective.value()) == -1);
+	CHECK(Approx(x.value()) == 0.5);
+	CHECK(Approx(y.value()) == 0.5);
+	REQUIRE(ip.solve());
+	CHECK(Approx(objective.value()) == 0);
+	CHECK(Approx(x.value()) == 0);
+	CHECK(Approx(y.value()) == 0);
 }

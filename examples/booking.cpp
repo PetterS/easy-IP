@@ -100,7 +100,7 @@ int main()
 		for (int t = 0; t < T; ++t) {
 			bool found = false;
 			for (int k = 0; k < K; ++k) {
-				if (x[k][s][t].value()) {
+				if (x[k][s][t].bool_value()) {
 					attest(!found);
 					cout << k % 10;  // Will always print 0--9.
 					found = true;

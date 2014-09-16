@@ -220,7 +220,7 @@ TEST_CASE("minisat")
 				solution[i].emplace_back();
 
 				for (int k = 0; k < n*n; ++k) {
-					if (P[i][j][k].value()) {
+					if (P[i][j][k].bool_value()) {
 						solution[i][j] = k + 1;
 					}
 				}
@@ -266,10 +266,10 @@ TEST_CASE("sat-objective")
 	ip.add_objective(4*x + y + 2*z + w);
 	ip.add_constraint(x + y + z + w == 2);
 	CHECK(ip.solve());
-	CHECK(!x.value());
-	CHECK( y.value());
-	CHECK(!z.value());
-	CHECK( w.value());
+	CHECK(!x.bool_value());
+	CHECK( y.bool_value());
+	CHECK(!z.bool_value());
+	CHECK( w.bool_value());
 }
 
 TEST_CASE("sat-negative-objective")
@@ -283,10 +283,10 @@ TEST_CASE("sat-negative-objective")
 	ip.add_objective(-4 * x - y - 2 * z - w);
 	ip.add_constraint(x + y + z + w == 2);
 	CHECK(ip.solve());
-	CHECK(x.value());
-	CHECK(!y.value());
-	CHECK(z.value());
-	CHECK(!w.value());
+	CHECK(x.bool_value());
+	CHECK(!y.bool_value());
+	CHECK(z.bool_value());
+	CHECK(!w.bool_value());
 }
 
 TEST_CASE("sat-objective-next_solution")
@@ -355,7 +355,7 @@ TEST_CASE("add_min_max_consequtive_constraints-4")
 		CHECK(x_sum.value() <= 8);
 		int consequtive = 0;
 		for (auto& xx : x) {
-			if (xx.value()) {
+			if (xx.value() > 0.5) {
 				consequtive++;
 			}
 			else {
@@ -385,7 +385,7 @@ TEST_CASE("add_min_max_consequtive_constraints-5")
 	do {
 		int consequtive = 0;
 		for (auto& xx : x) {
-			if (xx.value()) {
+			if (xx.value() > 0.5) {
 			}
 			else {
 				consequtive = 0;

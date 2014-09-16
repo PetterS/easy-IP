@@ -331,7 +331,7 @@ int main_program(int num_args, char* args[])
 		for (int n = 0; n < problem.get_num_nurses(); ++n) {
 			for (int d = 0; d < problem.get_num_days(); ++d) {
 				for (int s = 0; s < problem.get_num_shifts(); ++s) {
-					if (x[n][d][s].value()) {
+					if (x[n][d][s].bool_value()) {
 						problem.assign(n, d, s);
 					}
 				}
@@ -342,7 +342,7 @@ int main_program(int num_args, char* args[])
 	start_time = omp_get_wtime();
 
 	// Try SAT solver first.
-	bool try_SAT_solver = true;
+	bool try_SAT_solver = false;
 	if (try_SAT_solver) {
 		start_time = omp_get_wtime();
 		ip.set_external_solver(IP::Minisat);

@@ -95,7 +95,7 @@ class EASY_IP_API BooleanVariable
 {
 friend class IP;
 public:
-	bool value() const;
+	bool bool_value() const;
 private:
 	BooleanVariable(const Variable& variable)
 		: Variable(variable)
@@ -349,6 +349,8 @@ public:
 	///
 	/// If a callback is used, preprocessing will be turned off.
 	bool solve(const CallBack& callback_function = nullptr, bool silent_mode = false);
+
+	bool solve_relaxation();
 
 	bool next_solution();
 
