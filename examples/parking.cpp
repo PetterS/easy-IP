@@ -229,6 +229,17 @@ int main_program()
 	// Entrance to the parking lot.
 	ip.add_constraint( T[starti][startj] );
 
+	// Border
+	// Sum border = 0;
+	// for (int i = 1; i < n-1; ++i) {
+	// 	border += T[0][i];
+	// 	border += T[n-1][i];
+	// 	border += T[i][0];
+	// 	border += T[i][n-1];
+	// }
+	// // There has to be an entrance.
+	// ip.add_constraint(border >= 1);
+
 	// T[0][0] == 1
 	//. P P P P P
 	//. . . . . .
@@ -268,16 +279,6 @@ int main_program()
 	// . . . . . . . . . .
 	// P P P P P P P P P P
 	// 61
-
-	// Border
-	/*
-	Sum above_border = 0;
-	for (int i = 0; i < n; ++i) {
-		above_border += T[0][i];
-	}
-	// There has to be an entrance.
-	ip.add_constraint(above_border >= 1);
-	*/
 
 	// We can not have both parking and transportation.
 	for (int i = 0; i < n; ++i) {
@@ -342,12 +343,11 @@ int main_program()
 	};
 
 	//ip.set_external_solver(IP::MOSEK);
-	attest(ip.solve(print_solution));
-
+	ip.set_external_solver(IP::Minisat);
+	attest(ip.solve());
 	do {
 		print_solution();
-	} while (false /*ip.next_solution()*/);
-
+	} while (ip.next_solution());
 
 	return 0;
 }
