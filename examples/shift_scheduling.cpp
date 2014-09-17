@@ -32,7 +32,6 @@ string read_line(istream& file)
 	if (!file) {
 		return "";
 	}
-	int i = 0;
 	
 	// Check for comment.
 	for (auto ch: line) {
@@ -446,7 +445,7 @@ int main_program(int num_args, char* args[])
 			for (int d = 0; d < problem.get_num_days(); ++d) {
 				bool printed = false;
 				for (int s = 0; s < problem.get_num_shifts(); ++s) {
-					if (x[p][d][s].value()) {
+					if (x[p][d][s].bool_value()) {
 						cout << problem.get_shift(s).ID;
 						printed = true;
 					}
@@ -456,6 +455,9 @@ int main_program(int num_args, char* args[])
 			cout << endl;
 		}
 	};
+
+	attest(ip.solve_relaxation());
+	clog << endl << "Lower bound is " << objective.value() << endl << endl;
 
 	//ip.save_MPS("scheduling");
 	clog << "Starting search. Will print integer solutions to stdout." << endl;
