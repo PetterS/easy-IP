@@ -798,7 +798,7 @@ vector<vector<vector<BooleanVariable>>> IP::add_boolean_cube(int m, int n, int o
 
 // Adds the constraint
 //    L <= constraint <= U
-void IP::add_constraint(double L, const Sum& sum, double U)
+int IP::add_constraint(double L, const Sum& sum, double U)
 {
 	impl->check_creator(sum);
 
@@ -807,6 +807,12 @@ void IP::add_constraint(double L, const Sum& sum, double U)
 	//	std::cerr << sum.values[i] << "*x" << sum.cols[i] << " ";
 	//}
 	//std::cerr << " <= " << U-sum.constant << std::endl;
+
+	if (sum.impl->cols.empty()) {
+		check(L <= sum.impl->constant && sum.impl->constant <= U,
+			"A constraint that is always false may not be added.");
+		return 0;
+	}
 
 	impl->rhs_lower.push_back(L - sum.impl->constant);
 	impl->rhs_upper.push_back(U - sum.impl->constant);
@@ -820,18 +826,21 @@ void IP::add_constraint(double L, const Sum& sum, double U)
 	attest(impl->rows.size() == impl->values.size());
 	attest(impl->cols.size() == impl->values.size());
 	attest(impl->rhs_lower.size() == impl->rhs_upper.size());
+	return 1;
 }
 
-void IP::add_constraint(const Constraint& constraint)
+int IP::add_constraint(const Constraint& constraint)
 {
-	add_constraint(constraint.lower_bound, constraint.sum, constraint.upper_bound);
+	return add_constraint(constraint.lower_bound, constraint.sum, constraint.upper_bound);
 }
 
-void IP::add_constraint(const ConstraintList& list)
+int IP::add_constraint(const ConstraintList& list)
 {
+	int added = 0;
 	for (auto& constraint: list.impl->constraints) {
-		add_constraint(constraint);
+		added += add_constraint(constraint);
 	}
+	return added;
 }
 
 void IP::add_constraint(const BooleanVariable& variable)

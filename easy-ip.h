@@ -312,11 +312,14 @@ public:
 	vector<vector<vector<BooleanVariable>>> add_boolean_cube(int m, int n, int o, double this_cost = 0.0);
 
 	/// Adds the constraint
-	///    L <= constraint <= U
-	void add_constraint(double L, const Sum& sum, double U);
+	///    L <= constraint <= U.
+	///
+	/// Returns the number of constraints added. This number
+	/// may be 0 if the constraint is trivial, e.g. 0 = 0.
+	int add_constraint(double L, const Sum& sum, double U);
 
-	void add_constraint(const Constraint& constraint);
-	void add_constraint(const ConstraintList& list);
+	int add_constraint(const Constraint& constraint);
+	int add_constraint(const ConstraintList& list);
 
 	void add_constraint(const BooleanVariable& variable);
 

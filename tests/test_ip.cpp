@@ -432,3 +432,15 @@ TEST_CASE("solve_relaxation")
 	CHECK(Approx(x.value()) == 0);
 	CHECK(Approx(y.value()) == 0);
 }
+
+TEST_CASE("trivial_constraint")
+{
+	IP ip;
+	Sum s = 0;
+	CHECK(ip.add_constraint(s <= 1) == 0);
+	CHECK_THROWS(ip.add_constraint(s <= -1));
+	CHECK_THROWS(ip.add_constraint(-1, s, -1));
+	CHECK_THROWS(ip.add_constraint(1, s, 1));
+	auto x = ip.add_boolean();
+	CHECK(ip.add_constraint(x <= 1) == 1);
+}
