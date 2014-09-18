@@ -1745,8 +1745,7 @@ int IP::add_max_consequtive_constraints(int N, const std::vector<Sum>& variables
 		for (int d2 = d; d2 < d + N + 1; ++d2) {
 			active_in_window += variables.at(d2);
 		}
-		add_constraint(active_in_window <= N);
-		constraints_added++;
+		constraints_added += add_constraint(active_in_window <= N);
 	}
 	return constraints_added;
 }
@@ -1802,8 +1801,7 @@ int IP::add_min_consequtive_constraints(int N, const std::vector<Sum>& variables
 				continue;
 			}
 
-			add_constraint(constraint >= -window_size + 1);
-			constraints_added++;
+			constraints_added += add_constraint(constraint >= -window_size + 1);
 		}
 	}
 	return constraints_added;
