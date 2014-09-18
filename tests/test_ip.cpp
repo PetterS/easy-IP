@@ -444,3 +444,9 @@ TEST_CASE("trivial_constraint")
 	auto x = ip.add_boolean();
 	CHECK(ip.add_constraint(x <= 1) == 1);
 }
+
+TEST_CASE("sum_without_variables")
+{
+	Sum s = 4;
+	CHECK(s.value() == 4);
+}

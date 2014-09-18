@@ -247,6 +247,13 @@ void Sum::add_term(double coeff, const Variable& variable)
 
 double Sum::value() const
 {
+	if (!impl->creator) {
+		// This happens if Sum is constant. No variables
+		// have been added.
+		attest(impl->cols.empty());
+		return impl->constant;
+	}
+
 	return impl->creator->get_solution(*this);
 }
 
