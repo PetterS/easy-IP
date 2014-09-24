@@ -610,6 +610,7 @@ public:
 	
 	bool use_osi() const;
 
+	void convert_to_minisat();
 	bool solve_minisat();
 	bool next_minisat();
 
@@ -634,7 +635,7 @@ public:
 	bool preprocess;
 	std::unique_ptr<OsiSolverInterface> problem;
 	std::unique_ptr<CbcModel> model;
-	
+
 	std::unique_ptr<Minisat::Solver> minisat_solver;
 	vector<Minisat::Lit> literals;
 	vector<Minisat::Lit> objective_function_literals;
@@ -1411,6 +1412,13 @@ void add_at_most_k_constraint(Minisat::Solver* solver,
 
 bool IP::Implementation::solve_minisat()
 {
+	convert_to_minisat();
+	solution.clear();
+	return next_minisat();
+}
+
+void IP::Implementation::convert_to_minisat()
+{
 	using namespace std;
 
 	minisat_solver.reset(new Minisat::Solver);
@@ -1545,9 +1553,6 @@ bool IP::Implementation::solve_minisat()
 			add_at_most_k_constraint(minisat_solver.get(), lit_rows[i], upper[i]);
 		}
 	}
-
-	solution.clear();
-	return next_minisat();
 }
 
 bool IP::Implementation::next_minisat()
@@ -1831,6 +1836,14 @@ void IP::save_MPS(const std::string& file_name)
 		solver = new_problem.get();
 	}
 	solver->writeMps(file_name.c_str());
+}
+
+void IP::save_CNF(const std::string& file_name)
+{
+	impl->convert_to_minisat();
+	auto f = std::fopen(file_name.c_str(), "w");
+	impl->minisat_solver->toDimacs(f, {});
+	std::fclose(f);
 }
 
 vector<double>& IP::get_rhs_lower() { return impl->rhs_lower; }

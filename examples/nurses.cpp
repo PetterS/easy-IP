@@ -347,6 +347,7 @@ int main_program(int num_args, char* args[])
 		start_time = omp_get_wtime();
 		ip.set_external_solver(IP::Minisat);
 		ip.allow_ignoring_cost_function();
+		//ip.save_CNF("nurses.cnf");
 		ip.solve();
 		int num_solutions = 0;
 		do {
