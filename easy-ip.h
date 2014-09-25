@@ -415,7 +415,6 @@ protected:
 	vector<double>& get_solution();
 
 private:
-	friend class GecodeModel;
 	class Implementation;
 	Implementation* impl;
 };

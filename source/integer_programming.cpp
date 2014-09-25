@@ -291,6 +291,10 @@ bool IP::next_solution()
 	if (impl->external_solver == Minisat) {
 		return impl->next_minisat();
 	}
+	else if (impl->external_solver == Gecode) {
+		check(false, "next_solution not supported for Gecode.");
+		return false;
+	}
 
 	OsiSolverInterface * refSolver = nullptr;
 	OsiSolverInterface* solver = nullptr;
