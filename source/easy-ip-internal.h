@@ -1,6 +1,11 @@
 #ifndef EASY_IP_INTERNAL_HEADER
 #define EASY_IP_INTERNAL_HEADER
 
+#include <coin/CbcModel.hpp>
+#include <coin/CbcCutGenerator.hpp>
+
+#include "minisat/core/Solver.h"
+
 #include <easy-ip.h>
 
 void check(bool expr, const char* message);
