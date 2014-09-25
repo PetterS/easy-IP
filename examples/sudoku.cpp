@@ -135,26 +135,28 @@ void main_program()
 
 	cerr << "Solving with Minisat..." << endl;		
 	auto start_time = wall_time();
-
 	ip.set_external_solver(IP::Minisat);
 	attest(ip.solve());
 	do {
 		print_solution();
 	} while (ip.next_solution());
-
 	cerr << "Found all solutions in " << wall_time() - start_time << " seconds." << endl;
+
+	cerr << "Solving with Gecode..." << endl;		
+	start_time = wall_time();
+	ip.set_external_solver(IP::Gecode);
+	attest(ip.solve());
+	print_solution();
+	cerr << "Found a solution in " << wall_time() - start_time << " seconds." << endl;
 
 	cerr << "Solving with IP solver..." << endl;
 	start_time = wall_time();
-
 	ip.set_external_solver(IP::Default);
 	//ip.set_external_solver(IP::MOSEK);
 	ip.solve();
-
 	do {
 		print_solution();
 	} while (false /*ip.next_solution()*/);
-
 	cerr << "Found all solutions in " << wall_time() - start_time << " seconds." << endl;
 }
 
