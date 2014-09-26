@@ -104,6 +104,23 @@ public:
 	const IP* creator;
 };
 
+class GecodeIPModel;
+class GecodeContainer
+{
+public:
+	GecodeContainer();
+	GecodeContainer(GecodeIPModel* model);
+	GecodeContainer(const GecodeContainer&)  = delete;
+	void operator = (const GecodeContainer&) = delete;
+	GecodeContainer(GecodeContainer&&)       = delete;
+	void operator = (GecodeContainer&&);
+	~GecodeContainer();
+	bool next_solution(std::vector<double>* x);
+private:
+	class Implementation;
+	Implementation* impl;
+};
+
 class IP::Implementation
 {
 public:
@@ -148,6 +165,8 @@ public:
 	vector<Minisat::Lit> objective_function_literals;
 	vector<Minisat::Lit> objective_function_slack_literals;
 	int sat_objective_offset = 0;
+
+	GecodeContainer gecode_container;
 
 	std::vector<std::unique_ptr<CglCutGenerator>> generators;
 

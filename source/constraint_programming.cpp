@@ -116,19 +116,67 @@ public:
 	}
 };
 
+class GecodeContainer::Implementation
+{
+public:
+	Implementation(GecodeIPModel* model)
+		: dfs(model)
+	{ }
+
+	bool next_solution(std::vector<double>* x)
+	{
+		if (GecodeIPModel* m = dfs.next()) {
+			m->get_solution(x);
+			delete m;
+			return true;
+		}
+
+		return false;
+	}
+
+private:
+	Gecode::DFS<GecodeIPModel> dfs;
+};
+
+GecodeContainer::GecodeContainer()
+	: impl(nullptr)
+{
+}
+
+GecodeContainer::GecodeContainer(GecodeIPModel* model)
+	: impl(new Implementation(model))
+{ }
+
+void GecodeContainer::operator = (GecodeContainer&& other)
+{
+	if (impl) {
+		delete impl;
+	}
+	impl = other.impl;
+	other.impl = nullptr;
+}
+
+GecodeContainer::~GecodeContainer()
+{
+	if (impl) {
+		delete impl;
+	}
+}
+
+bool GecodeContainer::next_solution(std::vector<double>* x)
+{
+	attest(impl);
+	return impl->next_solution(x);
+}
+
+
 bool IP::Implementation::solve_gecode()
 {
 	using namespace Gecode;
 
 	auto model = new GecodeIPModel(rhs_lower, rhs_upper, rows, cols, values, var_lb, var_ub, cost);
-	DFS<GecodeIPModel> dfs(model);
+	gecode_container = GecodeContainer(model);
 	delete model;
 
-	if (GecodeIPModel* m = dfs.next()) {
-		m->get_solution(&solution);
-		delete m;
-		return true;
-	}
-
-	return false;
+	return gecode_container.next_solution(&solution);
 }
