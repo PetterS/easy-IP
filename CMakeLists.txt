@@ -1,5 +1,5 @@
 # Author: petter.strandmark@gmail.com (Petter Strandmark)
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.4)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
 PROJECT(EASYIP C CXX)
 
 OPTION(USE_MOSEK "Use Mosek solver." OFF)
