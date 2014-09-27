@@ -129,8 +129,8 @@ TEST_CASE("sudoku")
 	using namespace std;
 
 	IP ip;
-	int n = 3;
-	auto P = create_soduku_IP(ip);
+	int n = 2;
+	auto P = create_soduku_IP(ip, n);
 
 	REQUIRE(ip.solve());
 
@@ -156,8 +156,8 @@ TEST_CASE("sudoku")
 			row_sum += solution[i][j];
 			col_sum += solution[j][i];
 		}
-		CHECK(row_sum == 45);
-		CHECK(col_sum == 45);
+		CHECK(row_sum == (n*n * (n*n + 1)) / 2);
+		CHECK(col_sum == (n*n * (n*n + 1)) / 2);
 	}
 }
 
