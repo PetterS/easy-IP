@@ -143,7 +143,7 @@ bool IP::solve(const CallBack& callback_function, bool silent_mode)
 		#ifdef HAS_MOSEK
 			auto mosek_solver = std::unique_ptr<OsiSolverInterface>(new OsiMskSolverInterface);
 			get_problem(mosek_solver);
-			impl->problem = std::move(mosek_solver)
+			impl->problem = std::move(mosek_solver);
 		#endif
 	}
 	else {
@@ -152,6 +152,10 @@ bool IP::solve(const CallBack& callback_function, bool silent_mode)
 
 	if (impl->external_solver != IP::Default || impl->integer_variables.empty()) {
 		
+		if (silent_mode) {
+			impl->problem->messageHandler()->setLogLevel(0);
+		}
+
 		if (impl->integer_variables.empty()) {
 			impl->problem->initialSolve();
 		}
