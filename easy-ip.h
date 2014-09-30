@@ -77,15 +77,12 @@ private:
 	size_t index;
 	const IP* creator;
 
+public:
 	// Everything below ONLY exists so that the variable
 	// may be stored in an std::map.
 	Variable() 
 		: index(-1), creator(nullptr)
 	{ }
-	template <typename A, typename B, typename C, typename D>
-	friend class std::map;
-	template <typename A, typename B>
-	friend struct std::pair;
 };
 
 /// Represents a boolean variable in order to enforce

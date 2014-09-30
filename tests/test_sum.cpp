@@ -111,3 +111,9 @@ TEST_CASE_METHOD(IPTestFixture, "scalar_multiplication")
 	CHECK(ip.get_solution( 0 * (x1 + x2 + x3) ) == 0);
 	CHECK(ip.get_solution( (x1 + x2 + x3) * 0 ) == 0);
 }
+
+TEST_CASE("free_variables")
+{
+	Variable x;
+	CHECK_THROWS(x + x);
+}

@@ -93,6 +93,7 @@ public:
 		: constant(0.0),
 		  creator(variable.creator)
 	{
+		check(variable.creator != nullptr, "Variables used in sums must be created by an IP object.");
 		cols.push_back(int(variable.index));
 		values.push_back(1.0);
 	}
