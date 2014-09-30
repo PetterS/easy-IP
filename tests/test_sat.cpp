@@ -156,6 +156,15 @@ TEST_CASE("minisat")
 		auto x = ip.add_boolean();
 		auto y = ip.add_boolean();
 		ip.add_constraint(x + 2*y == 1);
+		CHECK(ip.solve());
+	}
+
+	{
+		IP ip;
+		ip.set_external_solver(IP::Minisat);
+		auto x = ip.add_boolean();
+		auto y = ip.add_boolean();
+		ip.add_constraint(x - 2*y == 1);
 		CHECK_THROWS(ip.solve());
 	}
 
@@ -270,6 +279,23 @@ TEST_CASE("sat-objective")
 	CHECK( y.bool_value());
 	CHECK(!z.bool_value());
 	CHECK( w.bool_value());
+}
+
+TEST_CASE("sat-constraints_coefs_larger_than_1")
+{
+	IP ip;
+	ip.set_external_solver(IP::Minisat);
+	auto x = ip.add_boolean();
+	auto y = ip.add_boolean();
+	auto z = ip.add_boolean();
+	ip.add_constraint(4*x - y - z >= 0);
+	REQUIRE(ip.solve());
+
+	int num_solutions = 0;
+	do {
+		num_solutions++;
+	} while (ip.next_solution());
+	REQUIRE(num_solutions == 5);
 }
 
 TEST_CASE("sat-negative-objective")

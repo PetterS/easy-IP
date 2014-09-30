@@ -195,10 +195,20 @@ void IP::Implementation::convert_to_minisat()
 	for (size_t ind = 0; ind < rows.size(); ++ind) {
 		auto var = literals.at(cols.at(ind));
 		auto coeff = values.at(ind);
-		check(coeff == 1 || coeff == -1, "SAT solver requires constraint coefficients of +-1.");
+		check(coeff >= 1 || coeff == -1, "SAT solver requires constraint coefficients of +-1.");
 
 		if (coeff == 1) {
 			lit_rows.at(rows.at(ind)).emplace_back(var);
+		}
+		else if (coeff > 1) {
+			// Add new literals equivalent to the variable and add them to
+			// the vector of cost literals.
+			for (int count = 1; count <= coeff; ++count) {
+				auto lit = Minisat::mkLit(minisat_solver->newVar());
+				minisat_solver->addClause(var, ~lit);
+				minisat_solver->addClause(~var, lit);
+				lit_rows.at(rows.at(ind)).emplace_back(lit);
+			}
 		}
 		else {
 			lower[rows.at(ind)] += 1;
