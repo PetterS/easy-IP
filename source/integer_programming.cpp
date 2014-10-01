@@ -414,6 +414,7 @@ void IP::get_problem(std::unique_ptr<OsiSolverInterface>& problem)
 	                     &impl->cost[0],
 	                     &impl->rhs_lower[0],
 	                     &impl->rhs_upper[0]);
+	problem->setDblParam(OsiObjOffset, -impl->objective_constant);
 
 	for (auto index: impl->integer_variables) {
 		problem->setInteger(static_cast<int>(index));
@@ -423,12 +424,12 @@ void IP::get_problem(std::unique_ptr<OsiSolverInterface>& problem)
 bool IP::solve_relaxation()
 {
 	attest(impl->external_solver != IP::Minisat);
+
 	std::vector<size_t> integer_variables_copy;
 	integer_variables_copy.swap(impl->integer_variables);
-
 	easyip_at_scope_exit(impl->integer_variables.swap(integer_variables_copy));
-	easyip_at_scope_exit(impl->problem.release());
 
+	easyip_at_scope_exit(impl->problem.release());
 	return solve();
 }
 

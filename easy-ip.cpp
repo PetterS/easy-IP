@@ -698,7 +698,8 @@ void IP::add_objective(const Sum& sum)
 	for (size_t i = 0; i < sum.impl->cols.size(); ++i) {
 		impl->cost.at(sum.impl->cols[i]) += sum.impl->values[i];
 	}
-	// TODO: handle constant.
+
+	impl->objective_constant += sum.impl->constant;
 }
 
 void IP::Implementation::check_creator(const Variable& t) const

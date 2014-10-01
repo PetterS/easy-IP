@@ -148,6 +148,7 @@ public:
 	vector<double> var_lb;
 	vector<double> var_ub;
 	vector<double> cost;
+	double objective_constant = 0;
 
 	vector<double> solution;
 
