@@ -266,6 +266,49 @@ TEST_CASE("FirstOrderProblem/inequalities")
 	CHECK(abs(obj.value() - optimal_objective) <= 1e-4);
 }
 
+TEST_CASE("FirstOrderProblem/inequalities2")
+{
+	using namespace std;
+
+	FirstOrderProblem problem;
+	auto x1 = problem.add_variable(IP::Real);
+	auto x2 = problem.add_variable(IP::Real);
+	auto x3 = problem.add_variable(IP::Real);
+	auto x4 = problem.add_variable(IP::Real);
+	auto x5 = problem.add_variable(IP::Real);
+
+	problem.set_bounds(-10.0, x1, 10.0);
+	problem.set_bounds(-10.0, x2, 10.0);
+	problem.set_bounds(-10.0, x3, 10.0);
+	problem.set_bounds(-10.0, x4, 10.0);
+	problem.set_bounds(-10.0, x5, 10.0);
+
+	problem.add_constraint(-x1  - 2*x5 >= -5.0);
+	problem.add_constraint(x2   + x4   <=  7.0);
+	problem.add_constraint(2*x3 + x4   <=  4.0);
+	problem.add_constraint(-x1  - x4   >= -5.0);
+	problem.add_constraint(-x3  - 2*x5 >= -4.0);
+	problem.add_constraint(x1   + x2   <=  6.0);
+
+	auto obj = -2.0*x1 - 1.0*x2 - 3.0*x3 - 1.0*x4 - 2.0*x5;
+	problem.add_objective(obj);
+
+	problem.solve();
+	auto optimal_objective = obj.value();
+	cerr << "Optimal value: " << optimal_objective << endl;
+
+	FirstOrderOptions options;
+	options.maximum_iterations = 20000;
+	options.print_interval = 10;
+	options.log_function = [](const string& str) { cerr << str << endl; };
+
+	CHECK(problem.solve_first_order(options));
+	CHECK(abs(obj.value() - optimal_objective) <= 1e-4);
+
+	CHECK(problem.solve_admm(options));
+	CHECK(abs(obj.value() - optimal_objective) <= 1e-4);
+}
+
 TEST_CASE("FirstOrderProblem/infeasible")
 {
 	using namespace std;

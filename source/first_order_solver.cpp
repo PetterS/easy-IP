@@ -207,7 +207,6 @@ bool first_order_primal_dual_solve(Eigen::VectorXd* x_ptr,    /// Primal variabl
 		Svec(i) = 1.0 / Svec(i);
 	}
 
-
 	size_t iteration;
 	for (iteration = 1; iteration <= options.maximum_iterations; ++iteration) {
 		bool should_check_convergence = options.print_interval <= 1 || iteration % options.print_interval == 1;
@@ -455,7 +454,7 @@ bool FirstOrderProblem::solve_first_order(const FirstOrderOptions& options)
 
 	Map<const VectorXd> lb(get_var_lb().data(), n);
 	Map<const VectorXd> ub(get_var_ub().data(), n);
-	Map<const VectorXd> b(get_rhs_upper().data(), m);
+	VectorXd            b(m);
 	Map<const VectorXd> c(get_cost().data(), n);
 	VectorXd x(n); x.setZero();
 	VectorXd y(m); y.setZero();
@@ -465,14 +464,17 @@ bool FirstOrderProblem::solve_first_order(const FirstOrderOptions& options)
 		auto& lb = get_rhs_lower()[i];
 		auto& ub = get_rhs_upper()[i];
 		if (lb == ub) {
+			b[i] = lb;
 			constraint_types.push_back(LinearConstraintType::Equality);
 		}
 		else if (ub < 1e100) {
 			attest(lb <= -1e100); // Cannot convert if both lb and ub exists.
+			b[i] = ub;
 			constraint_types.push_back(LinearConstraintType::LessThan);
 		}
 		else {
 			attest(lb > -1e100);
+			b[i] = lb;
 			constraint_types.push_back(LinearConstraintType::GreaterThan);
 		}
 	}
