@@ -195,6 +195,9 @@ INSTALL(TARGETS easyip
         ARCHIVE DESTINATION lib)
 INSTALL(FILES easy-ip.h DESTINATION include)
 
+
+configure_file(plot_first_order.py ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/plot_first_order.py COPYONLY)
+
 #
 # Packaging
 #

@@ -905,6 +905,12 @@ vector<int>& IP::get_rows() { return impl->rows; }
 vector<int>& IP::get_cols() { return impl->cols; }
 vector<double>& IP::get_values() { return impl->values; }
 
+const vector<double>& IP::get_rhs_lower() const { return impl->rhs_lower; }
+const vector<double>& IP::get_rhs_upper() const { return impl->rhs_upper; }
+const vector<int>& IP::get_rows() const { return impl->rows; }
+const vector<int>& IP::get_cols() const { return impl->cols; }
+const vector<double>& IP::get_values() const { return impl->values; }
+
 const vector<double>& IP::get_var_lb() const { return impl->var_lb; }
 const vector<double>& IP::get_var_ub() const { return impl->var_ub; }
 const vector<double>& IP::get_cost() const { return impl->cost; }
