@@ -137,6 +137,25 @@ bool check_convergence_and_log(std::ptrdiff_t iteration,
 	return is_converged;
 }
 
+
+template<typename Int>
+std::string to_string_with_separator(Int input)
+{
+	attest(input >= 0);
+	std::string s;
+	auto num = std::to_string(input);
+	std::reverse(begin(num), end(num));
+	for (std::size_t i = 0; i < num.size(); ++i) {
+		s += num[i];
+		if (i % 3 == 2 && i < num.size() - 1) {
+			s += ',';
+		}
+	}
+	std::reverse(begin(s), end(s));
+	return s;
+}
+
+
 /// Solves the linear program
 ///
 ///   minimize c·x
@@ -177,6 +196,9 @@ bool first_order_primal_dual_solve(Eigen::VectorXd* x_ptr,    /// Primal variabl
 	const SparseMatrix<double> AT = A.transpose();
 
 	if (options.log_function) {
+		options.log_function("Problem size: " + to_string_with_separator(A.rows())
+		                              + " x " + to_string_with_separator(A.cols())
+		                              + " ("  + to_string_with_separator(A.nonZeros()) + " non-zeros)");
 		options.log_function("   Iter         Objective     Rel. ch. x   Rel. ch. y   Infeasibility ");
 		options.log_function("----------------------------------------------------------------------");
 		x_prev.setConstant(std::numeric_limits<double>::quiet_NaN());
