@@ -6,6 +6,14 @@
 
 using namespace std;
 
+#define REQUIRE_NUM_SOLUTIONS(ip, num) \
+	REQUIRE(ip.solve()); \
+	int num_solutions = 0; \
+	do { \
+		num_solutions++; \
+	} while (ip.next_solution()); \
+	REQUIRE(num_solutions == num);
+
 auto create_soduku_IP(IP& ip, int n = 3)
 	-> decltype(ip.add_boolean_cube(9, 9, 9))
 {
@@ -164,15 +172,6 @@ TEST_CASE("minisat")
 		ip.set_external_solver(IP::Minisat);
 		auto x = ip.add_boolean();
 		auto y = ip.add_boolean();
-		ip.add_constraint(x - 2*y == 1);
-		CHECK_THROWS(ip.solve());
-	}
-
-	{
-		IP ip;
-		ip.set_external_solver(IP::Minisat);
-		auto x = ip.add_boolean();
-		auto y = ip.add_boolean();
 		ip.add_constraint(x - y == 1);
 		CHECK(ip.solve());
 		int num_solutions = 0;
@@ -291,11 +290,51 @@ TEST_CASE("sat-constraints_coefs_larger_than_1")
 	ip.add_constraint(4*x - y - z >= 0);
 	REQUIRE(ip.solve());
 
-	int num_solutions = 0;
-	do {
-		num_solutions++;
-	} while (ip.next_solution());
-	REQUIRE(num_solutions == 5);
+	REQUIRE_NUM_SOLUTIONS(ip, 5);
+}
+
+TEST_CASE("sat-constraints_coefs_zero")
+{
+	IP ip;
+	ip.set_external_solver(IP::Minisat);
+	auto x = ip.add_boolean();
+	ip.add_constraint(0*x >= 0);
+
+	REQUIRE_NUM_SOLUTIONS(ip, 2);
+}
+
+TEST_CASE("sat-constraints_fractional_coeff")
+{
+	IP ip;
+	ip.set_external_solver(IP::Minisat);
+	auto x = ip.add_boolean();
+	ip.add_constraint(0.5*x >= 0);
+
+	CHECK_THROWS(ip.solve());
+}
+
+TEST_CASE("sat-constraints_coefs_less_than_minus_1")
+{
+	IP ip;
+	ip.set_external_solver(IP::Minisat);
+	auto x = ip.add_boolean();
+	auto y = ip.add_boolean();
+	auto z = ip.add_boolean();
+	ip.add_constraint(8*x - 2*y - 2*z >= 0);
+
+	REQUIRE_NUM_SOLUTIONS(ip, 5);
+}
+
+TEST_CASE("sat-constraints_coefs_negative_multiple_times")
+{
+	IP ip;
+	ip.set_external_solver(IP::Minisat);
+	auto x = ip.add_boolean();
+	auto y = ip.add_boolean();
+	auto z = ip.add_boolean();
+	ip.add_constraint(8*x - y - y - z - z >= 0);
+
+	REQUIRE_NUM_SOLUTIONS(ip, 5);
 }
 
 TEST_CASE("sat-negative-objective")
@@ -328,14 +367,8 @@ TEST_CASE("sat-objective-next_solution")
 	auto obj = 4*x + y + 2*z + w + u + v;
 	ip.add_objective(obj);
 	ip.add_constraint(x + y + z + w + u + v == 2);
-	REQUIRE(ip.solve());
-
-	int num_solutions = 0;
-	do {
-		REQUIRE(obj.value() == 2);
-		num_solutions++;
-	} while (ip.next_solution());
-	REQUIRE(num_solutions == 6);
+	
+	REQUIRE_NUM_SOLUTIONS(ip, 6);
 }
 
 TEST_CASE("add_min_consequtive_constraints-2-true")
@@ -350,16 +383,11 @@ TEST_CASE("add_min_consequtive_constraints-2-true")
 	}
 	ip.add_constraint(x_sum == 2);
 	ip.add_min_consequtive_constraints(2, x, true);
-	int num_solutions = 0;
-	REQUIRE(ip.solve(nullptr, true));
-	do {
-		num_solutions++;
-	} while (ip.next_solution());
 
 	// 1 1 0
 	// 0 1 1
 	// 1 0 1
-	REQUIRE(num_solutions == 3);
+	REQUIRE_NUM_SOLUTIONS(ip, 3);
 }
 
 TEST_CASE("add_min_max_consequtive_constraints-4")

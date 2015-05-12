@@ -147,7 +147,7 @@ void IP::Implementation::convert_to_minisat()
 		//   x3 ⇔ x
 		//   y1 ⇔ y.
 		// Then slack variables are added with an upper bound:
-		//   x1 + x2 + x3 + y1 + s1 + s2 + s3 + s4 ≥ 4.
+		//   x1 + x2 + x3 + y1 + s1 + s2 + s3 + s4 ≤ 4.
 		// By assuming a different number of slack variables = 1, different
 		// objective functions value can be tested for satisfiability.
 
@@ -194,8 +194,8 @@ void IP::Implementation::convert_to_minisat()
 	vector<vector<Minisat::Lit>> lit_rows(num_constraints);
 	for (size_t ind = 0; ind < rows.size(); ++ind) {
 		auto var = literals.at(cols.at(ind));
-		auto coeff = values.at(ind);
-		check(coeff >= 1 || coeff == -1, "SAT solver requires constraint coefficients of +-1.");
+		int coeff = values.at(ind);
+		check(coeff == values.at(ind), "SAT solver requires integer coefficients in constraints.");
 
 		if (coeff == 1) {
 			lit_rows.at(rows.at(ind)).emplace_back(var);
@@ -210,10 +210,23 @@ void IP::Implementation::convert_to_minisat()
 				lit_rows.at(rows.at(ind)).emplace_back(lit);
 			}
 		}
-		else {
+		else if (coeff == -1) {
 			lower[rows.at(ind)] += 1;
 			upper[rows.at(ind)] += 1;
-			lit_rows.at(rows.at(ind)).emplace_back( ~ var);
+			lit_rows.at(rows.at(ind)).emplace_back( ~var);
+		}
+		else if (coeff < -1) {
+			// Add new literals equivalent to the variable and add them to
+			// the vector of cost literals.
+			for (int count = 1; count <= -coeff; ++count) {
+				auto lit = Minisat::mkLit(minisat_solver->newVar());
+				minisat_solver->addClause(var, ~lit);
+				minisat_solver->addClause(~var, lit);
+				lit_rows.at(rows.at(ind)).emplace_back( ~lit);
+
+				lower[rows.at(ind)] += 1;
+				upper[rows.at(ind)] += 1;
+			}
 		}
 	}
 
