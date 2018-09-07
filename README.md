@@ -1,3 +1,5 @@
+## This library has been merged into [monolith](https://github.com/PetterS/monolith) and will not be updated further here.
+
 [![Build Status](https://travis-ci.org/PetterS/easy-IP.png)](https://travis-ci.org/PetterS/easy-IP)
 
 This is an experimental modelling library for integer (and linear) programming. Example programs look like this:
