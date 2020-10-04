@@ -2,6 +2,11 @@
 // petter.strandmark@gmail.com
 
 #include <iostream>
+#include <map>
+#include <fstream>
+#include <string>
+#include <tuple>
+#include <vector>
 using namespace std;
 
 #include <easy-ip.h>
